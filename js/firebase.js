@@ -16,6 +16,9 @@ import {
 // ---------- Firestore ----------
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
+// ---------- Realtime Database ----------
+import { getDatabase } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
 // ---------- Storage ----------
 import { getStorage } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
@@ -33,8 +36,72 @@ import {
 const firebaseConfig = {
     apiKey: "AIzaSyA-HL4-Cr5tAYZH7GTEZKKMZpHfg42beDY",
     authDomain: "rhockstar-connect.firebaseapp.com",
+    databaseURL: "https://rhockstar-connect-default-rtdb.firebaseio.com",
     projectId: "rhockstar-connect",
     storageBucket: "rhockstar-connect.firebasestorage.app",
+    messagingSenderId: "1015640312772",
+    appId: "1:1015640312772:web:15c2497a29720b23c33291",
+    measurementId: "G-24LGXEWZL6"
+};
+
+
+// ======================================
+// INITIALIZE FIREBASE
+// ======================================
+
+const app = initializeApp(firebaseConfig);
+
+// Authentication
+const auth = getAuth(app);
+
+// Firestore
+const db = getFirestore(app);
+
+// Realtime Database
+const realtimeDB = getDatabase(app);
+
+// Storage
+const storage = getStorage(app);
+
+
+// ======================================
+// KEEP USER LOGGED IN
+// ======================================
+
+setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+        console.log("Auth persistence enabled.");
+    })
+    .catch((error) => {
+        console.error("Persistence Error:", error);
+    });
+
+
+// ======================================
+// ANALYTICS
+// ======================================
+
+let analytics = null;
+
+(async () => {
+    if (await isSupported()) {
+        analytics = getAnalytics(app);
+    }
+})();
+
+
+// ======================================
+// EXPORTS
+// ======================================
+
+export {
+    app,
+    auth,
+    db,
+    realtimeDB,
+    storage,
+    analytics
+};    storageBucket: "rhockstar-connect.firebasestorage.app",
     messagingSenderId: "1015640312772",
     appId: "1:1015640312772:web:15c2497a29720b23c33291",
     measurementId: "G-24LGXEWZL6"
