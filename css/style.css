@@ -107,7 +107,9 @@ body{
     font-family:'Poppins',sans-serif;
 
     color:var(--white);
-
+            
+    display: flex;
+            
     background:
 
     radial-gradient(circle at top left,#1e3a8a 0%,transparent 35%),
@@ -896,7 +898,6 @@ img:hover{
 
     top:0;
     left:0;
-
     width:280px;
     height:100vh;
 
