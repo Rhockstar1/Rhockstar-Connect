@@ -1,19 +1,29 @@
 // ======================================
 // RHOCKSTAR CONNECT
-// login.js (PART 1)
+// login.js
+// PART 1
 // ======================================
 
-import { auth, realtimeDB } from "./firebase.js";
+import {
+    auth,
+    db,
+    realtimeDB
+} from "./firebase.js";
 
-// Firebase Authentication
 import {
     signInWithEmailAndPassword,
+    sendPasswordResetEmail,
     setPersistence,
     browserLocalPersistence,
     browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-// Realtime Database
+import {
+    doc,
+    updateDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
 import {
     ref,
     update
@@ -21,7 +31,7 @@ import {
 
 
 // ======================================
-// HTML ELEMENTS
+// VERIFIED HTML IDS
 // ======================================
 
 const loginForm = document.getElementById("loginForm");
@@ -34,32 +44,22 @@ const togglePassword = document.getElementById("togglePassword");
 
 const rememberMe = document.getElementById("rememberMe");
 
+const forgotPassword = document.getElementById("forgotPassword");
+
 const loginBtn = document.getElementById("loginBtn");
 
 const messageBox = document.getElementById("messageBox");
 
 
 // ======================================
-// MESSAGE FUNCTIONS
+// MESSAGE
 // ======================================
 
 function showMessage(message, type = "error") {
 
     messageBox.textContent = message;
 
-    messageBox.style.display = "block";
-
-    messageBox.classList.remove("success", "error");
-
-    messageBox.classList.add(type);
-
-}
-
-function hideMessage() {
-
-    messageBox.textContent = "";
-
-    messageBox.style.display = "none";
+    messageBox.className = `message-box ${type}`;
 
 }
 
@@ -70,44 +70,41 @@ function hideMessage() {
 
 togglePassword.addEventListener("click", () => {
 
-    if (password.type === "password") {
+    password.type =
 
-        password.type = "text";
+        password.type === "password"
 
-        togglePassword.innerHTML =
-            '<i class="fas fa-eye-slash"></i>';
+            ? "text"
 
-    } else {
-
-        password.type = "password";
-
-        togglePassword.innerHTML =
-            '<i class="fas fa-eye"></i>';
-
-    }
+            : "password";
 
 });
-
-
 // ======================================
 // LOGIN
+// PART 2
 // ======================================
 
 loginForm.addEventListener("submit", async (e) => {
 
     e.preventDefault();
 
-    hideMessage();
+    showMessage("", "");
 
-    const email = loginId.value.trim().toLowerCase();
+    const login = loginId.value.trim().toLowerCase();
 
     const pass = password.value;
 
-    if (!email)
+    if (!login) {
+
         return showMessage("Enter your email.");
 
-    if (!pass)
+    }
+
+    if (!pass) {
+
         return showMessage("Enter your password.");
+
+    }
 
     loginBtn.disabled = true;
 
@@ -115,58 +112,86 @@ loginForm.addEventListener("submit", async (e) => {
 
     try {
 
-                // ======================================
+        // ======================================
         // REMEMBER ME
         // ======================================
 
         if (rememberMe.checked) {
 
             await setPersistence(
+
                 auth,
+
                 browserLocalPersistence
+
             );
 
         } else {
 
             await setPersistence(
+
                 auth,
+
                 browserSessionPersistence
+
             );
 
         }
 
 
         // ======================================
-        // SIGN IN
+        // FIREBASE LOGIN
         // ======================================
 
         const userCredential =
+
             await signInWithEmailAndPassword(
 
                 auth,
-                email,
+
+                login,
+
                 pass
 
             );
 
-        const user = userCredential.user;
+        const currentUser = userCredential.user;
 
 
         // ======================================
         // EMAIL VERIFICATION
         // ======================================
 
-        if (!user.emailVerified) {
+        if (!currentUser.emailVerified) {
 
             loginBtn.disabled = false;
 
             loginBtn.textContent = "Login";
 
             return showMessage(
+
                 "Please verify your email before logging in."
+
             );
 
-        }
+                }
+                // ======================================
+        // UPDATE FIRESTORE
+        // ======================================
+
+        await updateDoc(
+
+            doc(db, "users", currentUser.uid),
+
+            {
+
+                lastLogin: serverTimestamp(),
+
+                updatedAt: serverTimestamp()
+
+            }
+
+        );
 
 
         // ======================================
@@ -175,7 +200,7 @@ loginForm.addEventListener("submit", async (e) => {
 
         await update(
 
-            ref(realtimeDB, `users/${user.uid}`),
+            ref(realtimeDB, `users/${currentUser.uid}`),
 
             {
 
@@ -195,66 +220,111 @@ loginForm.addEventListener("submit", async (e) => {
         // ======================================
 
         showMessage(
+
             "Login successful.",
+
             "success"
+
         );
+
+        loginForm.reset();
 
         setTimeout(() => {
 
             window.location.href = "main.html";
 
         }, 1000);
+                // ======================================
+        // FORGOT PASSWORD
+        // ======================================
 
+        forgotPassword.addEventListener("click", async (e) => {
+
+            e.preventDefault();
+
+            const email = loginId.value.trim().toLowerCase();
+
+            if (!email) {
+
+                return showMessage(
+                    "Enter your email first."
+                );
+
+            }
+
+            try {
+
+                await sendPasswordResetEmail(
+                    auth,
+                    email
+                );
+
+                showMessage(
+                    "Password reset email sent.",
+                    "success"
+                );
 
             } catch (error) {
 
+                console.error(error);
+
+                switch (error.code) {
+
+                    case "auth/user-not-found":
+
+                        showMessage("No account found.");
+                        break;
+
+                    case "auth/invalid-email":
+
+                        showMessage("Invalid email.");
+                        break;
+
+                    default:
+
+                        showMessage(error.message);
+
+                }
+
+            }
+
+        );
+
+    } catch (error) {
+
         console.error(error);
-
-        loginBtn.disabled = false;
-
-        loginBtn.textContent = "Login";
 
         switch (error.code) {
 
             case "auth/invalid-credential":
 
-                showMessage(
-                    "Incorrect email or password."
-                );
+                showMessage("Incorrect email or password.");
                 break;
 
             case "auth/user-not-found":
 
-                showMessage(
-                    "Account not found."
-                );
+                showMessage("Account not found.");
                 break;
 
             case "auth/wrong-password":
 
-                showMessage(
-                    "Incorrect password."
-                );
+                showMessage("Incorrect password.");
                 break;
 
             case "auth/invalid-email":
 
-                showMessage(
-                    "Invalid email address."
-                );
+                showMessage("Invalid email address.");
                 break;
 
             case "auth/network-request-failed":
 
-                showMessage(
-                    "Network error. Check your internet connection."
-                );
+                showMessage("Check your internet connection.");
                 break;
 
             case "auth/too-many-requests":
 
                 showMessage(
-                    "Too many login attempts. Please try again later."
+                    "Too many attempts. Try again later."
                 );
                 break;
 
