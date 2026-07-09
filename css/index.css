@@ -1358,3 +1358,297 @@ a{
     translateY(0);
 
 }
+/*=========================================
+            NAVBAR
+=========================================*/
+
+
+.navbar{
+
+    position:sticky;
+
+    top:20px;
+
+    z-index:100;
+
+
+    margin:20px 40px;
+
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+
+    padding:18px 25px;
+
+
+    border-radius:25px;
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    backdrop-filter:blur(25px);
+
+
+}
+
+
+
+.logo{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+
+    font-weight:800;
+
+    color:white;
+
+}
+
+
+
+.logo-circle{
+
+    width:45px;
+
+    height:45px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+
+    border-radius:50%;
+
+
+    background:
+
+    linear-gradient(
+    135deg,
+    #38bdf8,
+    #8b5cf6);
+
+
+    color:white;
+
+    font-size:22px;
+
+}
+
+
+
+.navbar nav{
+
+    display:flex;
+
+    gap:30px;
+
+}
+
+
+
+.navbar nav a{
+
+    color:var(--muted);
+
+    text-decoration:none;
+
+    font-weight:500;
+
+
+}
+
+
+
+.navbar nav a:hover{
+
+    color:white;
+
+}
+
+
+
+.nav-btn{
+
+    padding:12px 25px;
+
+    border-radius:14px;
+
+
+    background:
+
+    linear-gradient(
+    135deg,
+    var(--primary),
+    var(--secondary));
+
+
+    color:white;
+
+    text-decoration:none;
+
+    font-weight:700;
+
+
+}
+
+
+
+/*=========================================
+            STATS
+=========================================*/
+
+
+.stats{
+
+    margin:80px 0;
+
+
+    display:grid;
+
+
+    grid-template-columns:
+
+    repeat(auto-fit,minmax(220px,1fr));
+
+
+    gap:25px;
+
+
+}
+
+
+
+.stat-card{
+
+
+    padding:35px;
+
+
+    text-align:center;
+
+
+    border-radius:25px;
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    backdrop-filter:blur(20px);
+
+
+
+}
+
+
+
+.stat-card h3{
+
+
+    font-size:3rem;
+
+
+    font-weight:900;
+
+
+    background:
+
+    linear-gradient(
+    135deg,
+    #38bdf8,
+    #8b5cf6);
+
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+
+}
+
+
+
+.stat-card p{
+
+    color:var(--muted);
+
+}
+
+
+
+/*=========================================
+            CTA
+=========================================*/
+
+
+.cta{
+
+
+    margin:100px 0;
+
+
+    padding:80px 40px;
+
+
+    text-align:center;
+
+
+    border-radius:35px;
+
+
+    background:
+
+
+    linear-gradient(
+    135deg,
+    rgba(56,189,248,.15),
+    rgba(139,92,246,.15));
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+
+}
+
+
+
+.cta p{
+
+    max-width:700px;
+
+    margin:25px auto 40px;
+
+
+    color:var(--muted);
+
+
+    line-height:1.8;
+
+}
