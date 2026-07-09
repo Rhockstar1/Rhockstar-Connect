@@ -1,0 +1,402 @@
+/*==================================================
+        DASHBOARD ROOT
+==================================================*/
+
+#main{
+
+    min-height:100vh;
+
+    display:flex;
+
+    position:relative;
+
+    background:
+
+    radial-gradient(
+        circle at top left,
+        rgba(56,189,248,.15),
+        transparent 35%
+    ),
+
+    radial-gradient(
+        circle at bottom right,
+        rgba(139,92,246,.15),
+        transparent 35%
+    ),
+
+    #020617;
+
+    color:white;
+
+}
+
+
+
+/*==================================================
+        SIDEBAR
+==================================================*/
+
+
+.sidebar{
+
+    width:280px;
+
+    height:100vh;
+
+    position:fixed;
+
+    left:0;
+
+    top:0;
+
+    z-index:1000;
+
+
+    padding:30px 20px;
+
+
+    background:
+
+    rgba(15,23,42,.75);
+
+
+    backdrop-filter:
+
+    blur(30px);
+
+
+    border-right:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    box-shadow:
+
+    20px 0 50px rgba(0,0,0,.35);
+
+
+    transition:.35s ease;
+
+
+}
+
+
+
+
+
+/*==================================================
+        LOGO
+==================================================*/
+
+
+.sidebar .logo{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    margin-bottom:45px;
+
+}
+
+
+
+.sidebar .logo h2{
+
+    margin:0;
+
+    font-size:1.8rem;
+
+    font-weight:900;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+}
+
+
+
+.sidebar .logo small{
+
+    color:#94a3b8;
+
+    font-size:.8rem;
+
+}
+
+
+
+/*==================================================
+        CLOSE BUTTON
+==================================================*/
+
+
+.close-menu{
+
+    display:none;
+
+
+    background:
+
+    rgba(255,255,255,.08);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+    color:white;
+
+
+    width:40px;
+
+    height:40px;
+
+
+    border-radius:12px;
+
+}
+
+
+
+
+
+/*==================================================
+        SIDEBAR NAVIGATION
+==================================================*/
+
+
+.sidebar ul{
+
+    list-style:none;
+
+    padding:0;
+
+    margin:0;
+
+}
+
+
+
+.sidebar li{
+
+    margin-bottom:12px;
+
+}
+
+
+
+
+.sidebar .nav-link,
+#logout{
+
+
+    width:100%;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:15px;
+
+
+    padding:15px 18px;
+
+
+    border-radius:16px;
+
+
+    color:#cbd5e1;
+
+
+    text-decoration:none;
+
+
+    background:transparent;
+
+
+    border:none;
+
+
+    font-size:1rem;
+
+
+    font-weight:600;
+
+
+    transition:.3s;
+
+
+    cursor:pointer;
+
+
+}
+
+
+
+
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active,
+#logout:hover{
+
+
+    color:white;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        rgba(56,189,248,.18),
+        rgba(139,92,246,.18)
+    );
+
+
+    border:
+
+    1px solid rgba(56,189,248,.25);
+
+
+    transform:
+
+    translateX(8px);
+
+
+}
+
+
+
+/*==================================================
+        LOGOUT SPECIAL
+==================================================*/
+
+
+#logout{
+
+
+    margin-top:30px;
+
+}
+
+
+#logout:hover{
+
+
+    background:
+
+    rgba(239,68,68,.15);
+
+
+    border-color:
+
+    rgba(239,68,68,.3);
+
+
+}
+
+
+
+
+
+/*==================================================
+        MOBILE BUTTON
+==================================================*/
+
+
+.menu-toggle{
+
+
+    display:none;
+
+
+    position:fixed;
+
+
+    top:20px;
+
+
+    left:20px;
+
+
+    z-index:1200;
+
+
+    width:50px;
+
+
+    height:50px;
+
+
+    border-radius:15px;
+
+
+    border:none;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    color:white;
+
+
+    font-size:25px;
+
+
+}
+
+
+
+
+
+/*==================================================
+        OVERLAY
+==================================================*/
+
+
+#sidebarOverlay{
+
+
+    display:none;
+
+
+    position:fixed;
+
+
+    inset:0;
+
+
+    background:
+
+    rgba(0,0,0,.65);
+
+
+    z-index:900;
+
+
+    backdrop-filter:blur(5px);
+
+}
