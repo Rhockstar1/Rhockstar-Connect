@@ -1653,3 +1653,365 @@ a{
     line-height:1.8;
 
 }
+/*=========================================
+            HERO UPGRADE
+=========================================*/
+
+
+.hero{
+
+    position:relative;
+
+    overflow:hidden;
+
+}
+
+
+
+.hero::before{
+
+    content:"";
+
+    position:absolute;
+
+
+    width:400px;
+
+    height:400px;
+
+
+    left:-150px;
+
+    top:-150px;
+
+
+    background:
+
+    radial-gradient(
+    circle,
+    rgba(56,189,248,.35),
+    transparent 70%);
+
+
+    filter:blur(40px);
+
+
+}
+
+
+
+.hero-content{
+
+
+    display:grid;
+
+
+    grid-template-columns:
+
+    1fr 450px;
+
+
+    gap:60px;
+
+
+    align-items:center;
+
+
+}
+
+
+
+/*=========================================
+            BADGE
+=========================================*/
+
+
+.hero-badge{
+
+
+    display:inline-block;
+
+
+    padding:12px 22px;
+
+
+    margin-bottom:30px;
+
+
+    border-radius:50px;
+
+
+    background:
+
+    rgba(56,189,248,.12);
+
+
+    border:
+
+    1px solid rgba(56,189,248,.25);
+
+
+    color:#38bdf8;
+
+
+    font-weight:600;
+
+
+}
+
+
+
+/*=========================================
+            HERO TEXT
+=========================================*/
+
+
+.hero-text h1{
+
+
+    text-align:left;
+
+
+    font-size:4.5rem;
+
+
+    font-weight:900;
+
+
+    line-height:1.05;
+
+
+}
+
+
+
+.hero-text p{
+
+
+    text-align:left;
+
+
+    margin-left:0;
+
+
+    margin-top:30px;
+
+
+}
+
+
+
+/*=========================================
+            APP PREVIEW
+=========================================*/
+
+
+.hero-preview{
+
+
+    padding:25px;
+
+
+    border-radius:35px;
+
+
+    background:
+
+
+    rgba(255,255,255,.05);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+    backdrop-filter:blur(30px);
+
+
+
+    box-shadow:
+
+    0 40px 90px rgba(0,0,0,.5);
+
+
+
+    animation:
+
+    floating 6s ease-in-out infinite;
+
+
+}
+
+
+
+.preview-header{
+
+
+    display:flex;
+
+
+    gap:8px;
+
+
+    margin-bottom:25px;
+
+
+}
+
+
+
+.preview-header div{
+
+
+    width:12px;
+
+    height:12px;
+
+
+    border-radius:50%;
+
+
+    background:
+
+    rgba(255,255,255,.4);
+
+
+}
+
+
+
+.profile-preview{
+
+
+    padding:25px;
+
+
+    text-align:center;
+
+
+    border-radius:25px;
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+}
+
+
+
+.avatar{
+
+
+    width:80px;
+
+
+    height:80px;
+
+
+    margin:auto;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    justify-content:center;
+
+
+    border-radius:50%;
+
+
+    font-size:35px;
+
+
+    font-weight:900;
+
+
+    background:
+
+    linear-gradient(
+    135deg,
+    #38bdf8,
+    #8b5cf6);
+
+
+}
+
+
+
+.profile-preview h4{
+
+
+    margin-top:20px;
+
+    color:white;
+
+
+}
+
+
+
+.profile-preview p{
+
+    color:var(--muted);
+
+}
+
+
+
+/*=========================================
+            PREVIEW CARDS
+=========================================*/
+
+
+.preview-card{
+
+
+    margin-top:15px;
+
+
+    padding:18px;
+
+
+    border-radius:18px;
+
+
+    background:
+
+    rgba(255,255,255,.06);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    color:white;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+.preview-card:hover{
+
+
+    transform:
+
+    translateX(10px);
+
+
+    border-color:
+
+    var(--primary);
+
+
+}
