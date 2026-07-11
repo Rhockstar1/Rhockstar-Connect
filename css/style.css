@@ -183,28 +183,28 @@ linear-gradient(
 
 body::before{
 
-
 content:"";
 
+position:absolute;
 
-position:fixed;
+width:500px;
+height:500px;
 
-
-inset:-250px;
-
+top:-150px;
+right:-150px;
 
 background:
-
-
 radial-gradient(
-
 circle,
+rgba(56,189,248,.15),
+transparent 70%
+);
 
-rgba(56,189,248,.18),
+filter:blur(60px);
 
-transparent 60%
+z-index:-1;
 
-),
+}
 
 
 radial-gradient(
@@ -382,9 +382,8 @@ border:
 
 
 
-backdrop-filter:
-
-blur(30px);
+background:rgba(15,23,42,.85);
+backdrop-filter:none;
 
 
 
@@ -397,7 +396,58 @@ var(--shadow);
 
 
 
+@media(max-width:600px){
 
+.navbar,
+#page-wrapper,
+.hero,
+.hero-preview,
+.card,
+.stat-card,
+.about,
+.cta{
+
+backdrop-filter:none;
+
+background:rgba(15,23,42,.85);
+
+}
+
+}
+@media(max-width:600px){
+
+body::before,
+.hero::before,
+.hero::after{
+
+animation:none;
+
+}
+
+.hero,
+.stat-card,
+.card,
+.about,
+.cta,
+.footer{
+
+animation:none;
+
+}
+
+}
+@media(max-width:600px){
+
+.card:hover,
+.stat-card:hover,
+.primary-btn:hover,
+.secondary-btn:hover{
+
+transform:none;
+
+}
+
+}
 
 /*==================================================
                 NAVBAR
@@ -474,7 +524,15 @@ box-shadow:
 
 
 
+@media(max-width:600px){
 
+*{
+
+box-shadow:none!important;
+
+}
+
+}
 
 
 /*==================================================
