@@ -1,4 +1,410 @@
 /*==================================================
+        DASHBOARD ROOT
+==================================================*/
+
+#main{
+
+    min-height:100vh;
+
+    display:flex;
+
+    position:relative;
+
+    background:
+
+    radial-gradient(
+        circle at top left,
+        rgba(56,189,248,.15),
+        transparent 35%
+    ),
+
+    radial-gradient(
+        circle at bottom right,
+        rgba(139,92,246,.15),
+        transparent 35%
+    ),
+
+    #020617;
+
+    color:white;
+
+}
+
+
+
+/*==================================================
+        SIDEBAR
+==================================================*/
+
+
+.sidebar{
+
+    width:280px;
+
+    height:100vh;
+
+    position:fixed;
+
+    left:0;
+
+    top:0;
+
+    z-index:1000;
+
+
+    padding:30px 20px;
+
+
+    background:
+
+    rgba(15,23,42,.75);
+
+
+    backdrop-filter:
+
+    blur(30px);
+
+
+    border-right:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    box-shadow:
+
+    20px 0 50px rgba(0,0,0,.35);
+
+
+    transition:.35s ease;
+
+
+}
+
+
+
+
+
+/*==================================================
+        LOGO
+==================================================*/
+
+
+.sidebar .logo{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    margin-bottom:45px;
+
+}
+
+
+
+.sidebar .logo h2{
+
+    margin:0;
+
+    font-size:1.8rem;
+
+    font-weight:900;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+}
+
+
+
+.sidebar .logo small{
+
+    color:#94a3b8;
+
+    font-size:.8rem;
+
+}
+
+
+
+/*==================================================
+        CLOSE BUTTON
+==================================================*/
+
+
+.close-menu{
+
+    display:none;
+
+
+    background:
+
+    rgba(255,255,255,.08);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+    color:white;
+
+
+    width:40px;
+
+    height:40px;
+
+
+    border-radius:12px;
+
+}
+
+
+
+
+
+/*==================================================
+        SIDEBAR NAVIGATION
+==================================================*/
+
+
+.sidebar ul{
+
+    list-style:none;
+
+    padding:0;
+
+    margin:0;
+
+}
+
+
+
+.sidebar li{
+
+    margin-bottom:12px;
+
+}
+
+
+
+
+.sidebar .nav-link,
+#logout{
+
+
+    width:100%;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:15px;
+
+
+    padding:15px 18px;
+
+
+    border-radius:16px;
+
+
+    color:#cbd5e1;
+
+
+    text-decoration:none;
+
+
+    background:transparent;
+
+
+    border:none;
+
+
+    font-size:1rem;
+
+
+    font-weight:600;
+
+
+    transition:.3s;
+
+
+    cursor:pointer;
+
+
+}
+
+
+
+
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active,
+#logout:hover{
+
+
+    color:white;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        rgba(56,189,248,.18),
+        rgba(139,92,246,.18)
+    );
+
+
+    border:
+
+    1px solid rgba(56,189,248,.25);
+
+
+    transform:
+
+    translateX(8px);
+
+
+}
+
+
+
+/*==================================================
+        LOGOUT SPECIAL
+==================================================*/
+
+
+#logout{
+
+
+    margin-top:30px;
+
+}
+
+
+#logout:hover{
+
+
+    background:
+
+    rgba(239,68,68,.15);
+
+
+    border-color:
+
+    rgba(239,68,68,.3);
+
+
+}
+
+
+
+
+
+/*==================================================
+        MOBILE BUTTON
+==================================================*/
+
+
+.menu-toggle{
+
+
+    display:none;
+
+
+    position:fixed;
+
+
+    top:20px;
+
+
+    left:20px;
+
+
+    z-index:1200;
+
+
+    width:50px;
+
+
+    height:50px;
+
+
+    border-radius:15px;
+
+
+    border:none;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    color:white;
+
+
+    font-size:25px;
+
+
+}
+
+
+
+
+
+/*==================================================
+        OVERLAY
+==================================================*/
+
+
+#sidebarOverlay{
+
+
+    display:none;
+
+
+    position:fixed;
+
+
+    inset:0;
+
+
+    background:
+
+    rgba(0,0,0,.65);
+
+
+    z-index:900;
+
+
+    backdrop-filter:blur(5px);
+
+}
+
+
+.dashboard{
+
+   /*==================================================
             DASHBOARD MAIN LAYOUT
 ==================================================*/
 
@@ -15,5 +421,2523 @@
     padding:30px;
 
     overflow-x:hidden;
+
+}
+
+/*==================================================
+            FEED PAGE
+==================================================*/
+
+
+.page{
+
+    display:none;
+
+}
+
+
+
+.page.active{
+
+    display:block;
+
+}
+
+
+
+/*==================================================
+            FEED GRID
+==================================================*/
+
+
+#feed{
+
+
+    display:grid;
+
+
+    grid-template-columns:
+
+
+    minmax(0,1fr) 330px;
+
+
+    gap:30px;
+
+
+    align-items:start;
+
+
+}
+
+
+
+/*==================================================
+            FEED HEADER
+==================================================*/
+
+
+.feed-header{
+
+
+    display:flex;
+
+
+    justify-content:space-between;
+
+
+    align-items:center;
+
+
+    margin-bottom:25px;
+
+
+}
+
+
+
+.feed-header h2{
+
+
+    font-size:2rem;
+
+
+    font-weight:800;
+
+
+}
+
+
+
+.feed-header small{
+
+
+    color:#94a3b8;
+
+
+}
+
+
+
+.refresh-btn{
+
+
+    padding:12px 20px;
+
+
+    border-radius:15px;
+
+
+    border:1px solid rgba(255,255,255,.1);
+
+
+    background:
+
+    rgba(255,255,255,.06);
+
+
+    color:white;
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+.refresh-btn:hover{
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    transform:translateY(-3px);
+
+
+}
+
+
+
+
+
+/*==================================================
+            GENERAL GLASS CARD
+==================================================*/
+
+
+.create-post,
+.post-card,
+.dashboard-card,
+.stories,
+.quick-status,
+.feed-filter{
+
+
+    background:
+
+    rgba(15,23,42,.75);
+
+
+    backdrop-filter:
+
+    blur(25px);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    border-radius:25px;
+
+
+    box-shadow:
+
+    0 20px 50px rgba(0,0,0,.25);
+
+
+}
+/*==================================================
+                STORIES SECTION
+==================================================*/
+
+
+.stories{
+
+    display:flex;
+
+    gap:18px;
+
+    padding:20px;
+
+    margin-bottom:25px;
+
+
+    overflow-x:auto;
+
+
+    scrollbar-width:none;
+
+}
+
+
+
+.stories::-webkit-scrollbar{
+
+    display:none;
+
+}
+
+
+
+
+
+/*==============================
+            STORY CARD
+===============================*/
+
+
+.story{
+
+
+    min-width:105px;
+
+    height:160px;
+
+
+    position:relative;
+
+
+    overflow:hidden;
+
+
+    border-radius:22px;
+
+
+    cursor:pointer;
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    transition:.35s;
+
+
+}
+
+
+
+
+.story:hover{
+
+
+    transform:
+
+    translateY(-8px);
+
+
+    border-color:
+
+    rgba(56,189,248,.5);
+
+
+}
+
+
+
+
+
+.story img{
+
+
+    width:100%;
+
+
+    height:100%;
+
+
+    object-fit:cover;
+
+
+    opacity:.85;
+
+
+}
+
+
+
+
+.story::after{
+
+
+    content:"";
+
+
+    position:absolute;
+
+
+    inset:0;
+
+
+    background:
+
+    linear-gradient(
+        transparent,
+        rgba(0,0,0,.75)
+    );
+
+
+}
+
+
+
+
+
+.story p{
+
+
+    position:absolute;
+
+
+    bottom:10px;
+
+
+    left:10px;
+
+
+    right:10px;
+
+
+    z-index:2;
+
+
+    margin:0;
+
+
+    color:white;
+
+
+    font-weight:600;
+
+
+    font-size:.9rem;
+
+
+    text-align:center;
+
+
+}
+
+
+
+
+
+/*==============================
+            YOUR STORY
+===============================*/
+
+
+.story.yours{
+
+
+    border:
+
+    2px solid #38bdf8;
+
+
+}
+
+
+
+
+.add-story{
+
+
+    position:absolute;
+
+
+    bottom:35px;
+
+
+    left:50%;
+
+
+    transform:translateX(-50%);
+
+
+    width:40px;
+
+
+    height:40px;
+
+
+    border-radius:50%;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    font-size:25px;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    z-index:3;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+                QUICK STATUS
+==================================================*/
+
+
+.quick-status{
+
+
+    display:flex;
+
+
+    flex-wrap:wrap;
+
+
+    gap:12px;
+
+
+    padding:20px;
+
+
+    margin-bottom:25px;
+
+
+}
+
+
+
+
+
+.quick-status button{
+
+
+    padding:12px 18px;
+
+
+    border-radius:30px;
+
+
+    color:#cbd5e1;
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+
+
+.quick-status button:hover{
+
+
+    color:white;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        rgba(56,189,248,.3),
+        rgba(139,92,246,.3)
+    );
+
+
+    transform:
+
+    translateY(-3px);
+
+
+}
+
+
+
+
+
+
+/*==================================================
+                FEED FILTER
+==================================================*/
+
+
+.feed-filter{
+
+
+    display:flex;
+
+
+    gap:10px;
+
+
+    padding:15px;
+
+
+    margin-bottom:25px;
+
+
+    overflow-x:auto;
+
+
+    scrollbar-width:none;
+
+
+}
+
+
+
+.feed-filter::-webkit-scrollbar{
+
+    display:none;
+
+}
+
+
+
+
+.feed-filter button{
+
+
+    white-space:nowrap;
+
+
+    padding:12px 20px;
+
+
+    border-radius:30px;
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    color:#94a3b8;
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+    font-weight:600;
+
+
+}
+
+
+
+
+
+.feed-filter button:hover{
+
+
+    color:white;
+
+
+    border-color:
+
+    rgba(56,189,248,.4);
+
+
+}
+
+
+
+
+
+.feed-filter button.active{
+
+
+    color:white;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    box-shadow:
+
+    0 10px 25px rgba(56,189,248,.25);
+
+
+}
+
+/*==================================================
+                POSTS CONTAINER
+==================================================*/
+
+
+.posts-container{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:25px;
+
+}
+
+
+
+
+
+/*==================================================
+                POST CARD
+==================================================*/
+
+
+.post-card{
+
+
+    padding:25px;
+
+
+    overflow:hidden;
+
+
+    transition:.35s;
+
+
+}
+
+
+
+
+.post-card:hover{
+
+
+    border-color:
+
+    rgba(56,189,248,.25);
+
+
+    transform:
+
+    translateY(-4px);
+
+
+}
+
+
+
+
+
+
+/*==================================================
+                POST HEADER
+==================================================*/
+
+
+.post-header{
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:15px;
+
+
+    margin-bottom:20px;
+
+
+}
+
+
+
+.post-avatar{
+
+
+    width:55px;
+
+
+    height:55px;
+
+
+    border-radius:50%;
+
+
+    object-fit:cover;
+
+
+    border:
+
+    2px solid rgba(56,189,248,.4);
+
+
+}
+
+
+
+
+
+.post-user{
+
+
+    flex:1;
+
+
+}
+
+
+
+.post-user h3{
+
+
+    margin:0;
+
+
+    font-size:1.05rem;
+
+
+    font-weight:800;
+
+
+}
+
+
+
+.post-user small{
+
+
+    color:#94a3b8;
+
+
+}
+
+
+
+
+.verified{
+
+
+    color:#38bdf8;
+
+
+    font-size:.9rem;
+
+
+}
+
+
+
+
+.post-menu-btn{
+
+
+    width:40px;
+
+
+    height:40px;
+
+
+    border-radius:50%;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    background:
+
+    rgba(255,255,255,.06);
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+.post-menu-btn:hover{
+
+
+    background:
+
+    rgba(255,255,255,.15);
+
+
+}
+
+
+
+
+
+
+/*==================================================
+                POST CONTENT
+==================================================*/
+
+
+.post-content{
+
+
+    margin-bottom:20px;
+
+
+    color:#e2e8f0;
+
+
+    line-height:1.8;
+
+
+}
+
+
+
+.post-content h3{
+
+
+    font-size:1.3rem;
+
+
+    font-weight:800;
+
+
+}
+
+
+
+
+
+/*==================================================
+                IMAGE GALLERY
+==================================================*/
+
+
+.post-gallery{
+
+
+    display:grid;
+
+
+    grid-template-columns:
+
+    repeat(2,1fr);
+
+
+    gap:10px;
+
+
+    margin-bottom:20px;
+
+
+}
+
+
+
+
+
+.post-gallery img{
+
+
+    width:100%;
+
+
+    height:250px;
+
+
+    object-fit:cover;
+
+
+    border-radius:20px;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+
+.post-gallery img:hover{
+
+
+    transform:scale(1.03);
+
+
+}
+
+
+
+
+
+/* Single image */
+
+
+.post-gallery img:only-child{
+
+
+    grid-column:
+
+    span 2;
+
+
+    height:400px;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+                VIDEO
+==================================================*/
+
+
+.post-content video{
+
+
+    width:100%;
+
+
+    border-radius:20px;
+
+
+    margin-top:15px;
+
+
+}
+
+
+
+
+
+
+
+/*==================================================
+                POST STATS
+==================================================*/
+
+
+.post-stats{
+
+
+    display:flex;
+
+
+    flex-wrap:wrap;
+
+
+    gap:15px;
+
+
+    padding:15px 0;
+
+
+    color:#94a3b8;
+
+
+    border-bottom:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    font-size:.9rem;
+
+
+}
+
+
+
+
+
+/*==================================================
+                POST ACTIONS
+==================================================*/
+
+
+.post-actions{
+
+
+    display:flex;
+
+
+    flex-wrap:wrap;
+
+
+    gap:10px;
+
+
+    padding:15px 0;
+
+
+}
+
+
+
+
+.post-actions button{
+
+
+    flex:1;
+
+
+    min-width:90px;
+
+
+    padding:12px;
+
+
+    border-radius:15px;
+
+
+    border:
+
+    1px solid rgba(255,255,255,.08);
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    color:#cbd5e1;
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+    font-weight:600;
+
+
+}
+
+
+
+
+
+.post-actions button:hover{
+
+
+    color:white;
+
+
+    background:
+
+    rgba(56,189,248,.15);
+
+
+    border-color:
+
+    rgba(56,189,248,.4);
+
+
+}
+
+
+
+
+
+.like-btn:hover{
+
+
+    color:#38bdf8!important;
+
+
+}
+
+
+
+.love-btn:hover{
+
+
+    color:#ef4444!important;
+
+
+}
+
+
+
+.bookmark-btn:hover{
+
+
+    color:#f59e0b!important;
+
+
+}
+
+
+
+
+
+
+
+/*==================================================
+                COMMENTS
+==================================================*/
+
+
+.comments-box{
+
+
+    margin-top:15px;
+
+
+    padding-top:20px;
+
+
+    border-top:
+
+    1px solid rgba(255,255,255,.08);
+
+
+}
+
+
+
+
+
+.comment{
+
+
+    display:flex;
+
+
+    gap:15px;
+
+
+    align-items:center;
+
+
+    margin-bottom:15px;
+
+
+}
+
+
+
+
+
+.comment-avatar{
+
+
+    width:40px;
+
+
+    height:40px;
+
+
+    border-radius:50%;
+
+
+    object-fit:cover;
+
+
+}
+
+
+
+.comment h4{
+
+
+    margin:0;
+
+
+    font-size:.95rem;
+
+
+}
+
+
+
+.comment p{
+
+
+    margin:5px 0;
+
+
+    color:#cbd5e1;
+
+
+}
+
+
+
+
+
+
+.comment-input{
+
+
+    display:flex;
+
+
+    gap:10px;
+
+
+}
+
+
+
+.comment-input textarea{
+
+
+    flex:1;
+
+
+    resize:none;
+
+
+    height:45px;
+
+
+    padding:12px;
+
+
+    border-radius:15px;
+
+
+    background:
+
+    rgba(255,255,255,.05);
+
+
+    border:
+
+    1px solid rgba(255,255,255,.1);
+
+
+    color:white;
+
+
+}
+
+
+
+
+.comment-input button{
+
+
+    padding:0 20px;
+
+
+    border-radius:15px;
+
+
+    border:none;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    color:white;
+
+
+}
+
+
+
+
+
+/*==================================================
+            SPECIAL POST TYPES
+==================================================*/
+
+
+.dating-post{
+
+
+    border:
+
+    1px solid rgba(236,72,153,.25);
+
+
+}
+
+
+
+.dating-post .post-actions button:first-child{
+
+
+    background:
+
+    rgba(236,72,153,.15);
+
+
+}
+/*==================================================
+            RIGHT FEED SIDEBAR
+==================================================*/
+
+
+.feed-right-sidebar{
+
+
+    display:flex;
+
+
+    flex-direction:column;
+
+
+    gap:25px;
+
+
+    position:sticky;
+
+
+    top:30px;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            DASHBOARD CARDS
+==================================================*/
+
+
+.dashboard-card{
+
+
+    padding:25px;
+
+
+}
+
+
+
+.dashboard-card h3{
+
+
+    margin:0 0 20px;
+
+
+    font-size:1.15rem;
+
+
+    font-weight:800;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:8px;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            ONLINE USERS
+==================================================*/
+
+
+.online-user{
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:12px;
+
+
+    padding:12px 0;
+
+
+    position:relative;
+
+
+}
+
+
+
+.online-user img,
+.suggest-user img,
+.dating-match img{
+
+
+    width:45px;
+
+
+    height:45px;
+
+
+    border-radius:50%;
+
+
+    object-fit:cover;
+
+
+}
+
+
+
+
+.online-user div,
+.suggest-user div,
+.dating-match div{
+
+
+    flex:1;
+
+
+}
+
+
+
+
+.online-user h4,
+.suggest-user h4,
+.dating-match h4{
+
+
+    margin:0;
+
+
+    font-size:.95rem;
+
+
+}
+
+
+
+.online-user small,
+.suggest-user small,
+.dating-match small{
+
+
+    color:#94a3b8;
+
+
+}
+
+
+
+
+
+.online-dot{
+
+
+    width:12px;
+
+
+    height:12px;
+
+
+    background:#22c55e;
+
+
+    border-radius:50%;
+
+
+    position:absolute;
+
+
+    left:35px;
+
+
+    bottom:12px;
+
+
+    border:2px solid #020617;
+
+
+}
+
+
+
+
+.message-btn,
+.match-btn{
+
+
+    width:38px;
+
+
+    height:38px;
+
+
+    border-radius:50%;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    background:
+
+    rgba(56,189,248,.15);
+
+
+    cursor:pointer;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            SUGGESTIONS
+==================================================*/
+
+
+.suggest-user{
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:12px;
+
+
+    padding:15px 0;
+
+
+}
+
+
+
+.connect-btn{
+
+
+    padding:8px 14px;
+
+
+    border-radius:20px;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    cursor:pointer;
+
+
+    font-size:.8rem;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            DATING MATCHES
+==================================================*/
+
+
+.dating-match{
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:12px;
+
+
+    padding:15px 0;
+
+
+}
+
+
+
+
+
+
+.match-btn{
+
+
+    background:
+
+    rgba(236,72,153,.2);
+
+
+}
+
+
+
+
+
+/*==================================================
+            EVENTS
+==================================================*/
+
+
+.event-list{
+
+
+    list-style:none;
+
+
+    padding:0;
+
+
+    margin:0;
+
+
+}
+
+
+
+.event-list li{
+
+
+    padding:15px;
+
+
+    margin-bottom:10px;
+
+
+    border-radius:15px;
+
+
+    background:
+
+    rgba(255,255,255,.04);
+
+
+    display:flex;
+
+
+    flex-direction:column;
+
+
+    gap:5px;
+
+
+}
+
+
+
+.event-list small{
+
+
+    color:#94a3b8;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            TRENDING
+==================================================*/
+
+
+.trend-list{
+
+
+    list-style:none;
+
+
+    padding:0;
+
+
+}
+
+
+
+.trend-list li{
+
+
+    padding:12px;
+
+
+    margin-bottom:8px;
+
+
+    border-radius:15px;
+
+
+    color:#cbd5e1;
+
+
+    background:
+
+    rgba(255,255,255,.04);
+
+
+    cursor:pointer;
+
+
+    transition:.3s;
+
+
+}
+
+
+
+.trend-list li:hover{
+
+
+    color:white;
+
+
+    background:
+
+    rgba(56,189,248,.15);
+
+
+    transform:
+
+    translateX(5px);
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            SPONSORED
+==================================================*/
+
+
+.sponsored-image{
+
+
+    width:100%;
+
+
+    height:180px;
+
+
+    object-fit:cover;
+
+
+    border-radius:20px;
+
+
+    margin-bottom:15px;
+
+
+}
+
+
+
+.dashboard-card p{
+
+
+    color:#cbd5e1;
+
+
+    line-height:1.7;
+
+
+}
+
+
+
+
+
+
+/*==================================================
+            LOAD MORE
+==================================================*/
+
+
+.load-more{
+
+
+    display:flex;
+
+
+    justify-content:center;
+
+
+    margin:30px 0;
+
+
+}
+
+
+
+#loadMorePosts{
+
+
+    padding:15px 35px;
+
+
+    border-radius:25px;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    font-weight:700;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+    cursor:pointer;
+
+
+}
+/*==================================================
+            FLOATING ACTION BUTTONS
+==================================================*/
+
+
+.floating-post,
+.floating-chat,
+.back-top{
+
+
+    position:fixed;
+
+
+    width:60px;
+
+
+    height:60px;
+
+
+    border-radius:50%;
+
+
+    border:none;
+
+
+    color:white;
+
+
+    font-size:25px;
+
+
+    cursor:pointer;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    justify-content:center;
+
+
+    z-index:800;
+
+
+    transition:.35s;
+
+
+    box-shadow:
+
+    0 15px 35px rgba(0,0,0,.35);
+
+
+}
+
+
+
+/* CREATE POST */
+
+
+.floating-post{
+
+
+    right:30px;
+
+
+    bottom:100px;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #38bdf8,
+        #8b5cf6
+    );
+
+
+}
+
+
+
+
+.floating-post:hover{
+
+
+    transform:
+
+    scale(1.1)
+    rotate(10deg);
+
+
+}
+
+
+
+
+
+/* CHAT */
+
+
+.floating-chat{
+
+
+    right:30px;
+
+
+    bottom:30px;
+
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #22c55e,
+        #06b6d4
+    );
+
+
+}
+
+
+
+
+.floating-chat:hover{
+
+
+    transform:
+
+    scale(1.1);
+
+
+}
+
+
+
+
+
+
+/* BACK TOP */
+
+
+.back-top{
+
+
+    right:30px;
+
+
+    bottom:170px;
+
+
+    width:45px;
+
+
+    height:45px;
+
+
+    font-size:18px;
+
+
+    background:
+
+    rgba(255,255,255,.1);
+
+
+    backdrop-filter:
+
+    blur(15px);
+
+
+    display:none;
+
+
+}
+
+
+
+
+
+
+
+/*==================================================
+            LOADING STATE
+==================================================*/
+
+
+.feed-loader{
+
+
+    position:fixed;
+
+
+    inset:0;
+
+
+    background:
+
+    rgba(2,6,23,.75);
+
+
+    backdrop-filter:
+
+    blur(10px);
+
+
+    display:flex;
+
+
+    flex-direction:column;
+
+
+    justify-content:center;
+
+
+    align-items:center;
+
+
+    z-index:2000;
+
+
+}
+
+
+
+.spinner{
+
+
+    width:55px;
+
+
+    height:55px;
+
+
+    border-radius:50%;
+
+
+    border:
+
+    5px solid rgba(255,255,255,.2);
+
+
+    border-top-color:#38bdf8;
+
+
+    animation:
+
+    spin 1s linear infinite;
+
+
+}
+
+
+
+@keyframes spin{
+
+
+    to{
+
+        transform:rotate(360deg);
+
+    }
+
+}
+
+
+
+
+
+
+/*==================================================
+            EMPTY FEED
+==================================================*/
+
+
+.empty-feed{
+
+
+    text-align:center;
+
+
+    padding:60px 20px;
+
+
+}
+
+
+
+.empty-feed img{
+
+
+    width:180px;
+
+
+    margin:auto;
+
+
+}
+
+
+
+.empty-feed h3{
+
+
+    margin-top:25px;
+
+
+    font-size:1.5rem;
+
+
+}
+
+
+
+.empty-feed p{
+
+
+    color:#94a3b8;
+
+
+}
+
+
+
+
+
+/*==================================================
+            DASHBOARD MOBILE
+==================================================*/
+
+
+@media(max-width:1200px){
+
+
+.dashboard{
+
+
+    margin-left:280px;
+
+
+}
+
+
+
+#feed{
+
+
+    grid-template-columns:
+
+    1fr;
+
+
+}
+
+
+
+.feed-right-sidebar{
+
+
+    display:grid;
+
+
+    grid-template-columns:
+
+    repeat(2,1fr);
+
+
+    position:static;
+
+
+}
+
+
+
+}
+
+
+
+
+
+@media(max-width:900px){
+
+
+
+.dashboard{
+
+
+    margin-left:0;
+
+
+    width:100%;
+
+
+    padding:20px;
+
+
+}
+
+
+
+
+#feed{
+
+
+    display:block;
+
+
+}
+
+
+
+.feed-right-sidebar{
+
+
+    display:flex;
+
+
+    margin-top:30px;
+
+
+}
+
+
+
+.sidebar{
+
+
+    transform:
+
+    translateX(-100%);
+
+
+}
+
+
+
+.sidebar.open{
+
+
+    transform:
+
+    translateX(0);
+
+
+}
+
+
+
+
+
+.menu-toggle{
+
+
+    display:flex;
+
+
+}
+
+
+
+#sidebarOverlay.active{
+
+
+    display:block;
+
+
+}
+
+
+
+.floating-post{
+
+
+    right:20px;
+
+
+    bottom:90px;
+
+
+}
+
+
+
+.floating-chat{
+
+
+    right:20px;
+
+
+    bottom:20px;
+
+
+}
+
+
+
+
+}
+
+
+
+
+
+@media(max-width:600px){
+
+
+
+.dashboard{
+
+
+    padding:15px;
+
+
+}
+
+
+
+.feed-header{
+
+
+    flex-direction:column;
+
+
+    align-items:flex-start;
+
+
+    gap:15px;
+
+
+}
+
+
+
+.create-top{
+
+
+    flex-direction:column;
+
+
+}
+
+
+
+.post-actions button{
+
+
+    flex:none;
+
+
+    width:100%;
+
+
+}
+
+
+
+.post-gallery{
+
+
+    grid-template-columns:1fr;
+
+
+}
+
+
+
+.post-gallery img:only-child{
+
+
+    height:250px;
+
+
+}
+
+
+
+.feed-right-sidebar{
+
+
+    grid-template-columns:1fr;
+
+
+}
+
+
+
+.quick-status button{
+
+
+    width:100%;
+
+
+}
+
+
 
 }
