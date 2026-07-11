@@ -450,26 +450,33 @@
 ==================================================*/
 
 
-#feed{
+/*==================================================
+            FEED LAYOUT
+==================================================*/
 
+.feed-layout{
 
     display:grid;
 
-
-    grid-template-columns:
-
-
-    minmax(0,1fr) 330px;
-
+    grid-template-columns:minmax(0,1fr) 330px;
 
     gap:30px;
 
-
     align-items:start;
-
 
 }
 
+.feed-main{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:25px;
+
+    min-width:0;
+
+}
 
 
 /*==================================================
@@ -2688,12 +2695,11 @@
 
 
 
-#feed{
+.feed-layout{
 
+    grid-template-columns:1fr;
 
-    grid-template-columns:
-
-    1fr;
+}
 
 
 }
@@ -2702,24 +2708,17 @@
 
 .feed-right-sidebar{
 
-
     display:grid;
 
+    grid-template-columns:repeat(2,1fr);
 
-    grid-template-columns:
-
-    repeat(2,1fr);
-
+    gap:20px;
 
     position:static;
 
+    top:auto;
 
 }
-
-
-
-}
-
 
 
 
@@ -2745,27 +2744,24 @@
 
 
 
-#feed{
-
+.feed-layout{
 
     display:block;
 
-
 }
 
-
-
+        
 .feed-right-sidebar{
-
 
     display:flex;
 
+    flex-direction:column;
+
+    gap:20px;
 
     margin-top:30px;
 
-
 }
-
 
 
 .sidebar{
@@ -2922,11 +2918,14 @@
 
 .feed-right-sidebar{
 
+    display:flex;
 
-    grid-template-columns:1fr;
+    flex-direction:column;
 
+    gap:20px;
 
 }
+
 
 
 
