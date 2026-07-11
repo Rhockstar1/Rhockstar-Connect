@@ -1,182 +1,382 @@
 // ======================================
-// feed.js (PART 1)
+// feed.js
+// RHOCKSTAR CONNECT FEED ENGINE
+// PART 1 FIXED
 // ======================================
 
-import { auth, db } from "./firebase.js";
+
+import { auth, db, storage } from "./firebase.js";
+
 
 import {
+
     collection,
     addDoc,
     onSnapshot,
     query,
     orderBy,
     serverTimestamp,
-    deleteDoc,
-    updateDoc,
     doc,
+    updateDoc,
     increment
+
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+
+import {
+
+    ref,
+    uploadBytes,
+    getDownloadURL
+
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+
+
 
 
 // ======================================
 // HTML ELEMENTS
 // ======================================
 
-const createPostForm = document.getElementById("createPostForm");
 
-const postText = document.getElementById("postText");
+const postText = document.getElementById("textSpace");
 
-const postImage = document.getElementById("postImage");
+const postImages = document.getElementById("postImages");
 
-const imagePreview = document.getElementById("imagePreview");
+const privacy = document.getElementById("privacy");
 
-const postPrivacy = document.getElementById("postPrivacy");
-
-const publishPostBtn = document.getElementById("publishPostBtn");
+const postBtn = document.getElementById("postBtn");
 
 const postsContainer = document.getElementById("postsContainer");
 
+const feedLoader = document.getElementById("feedLoader");
+
+
+
 
 // ======================================
-// POSTS COLLECTION
+// LOADER FUNCTIONS
 // ======================================
 
-const postsRef = collection(db, "posts");
+
+function showLoader(){
+
+    if(feedLoader){
+
+        feedLoader.classList.remove("hidden");
+
+    }
+
+}
+
+
+
+function hideLoader(){
+
+    if(feedLoader){
+
+        feedLoader.classList.add("hidden");
+
+    }
+
+}
+
+
+
+
+// ======================================
+// FIRESTORE POSTS
+// ======================================
+
+
+const postsRef = collection(db,"posts");
+
+
 
 
 // ======================================
 // CREATE POST
 // ======================================
 
-if (createPostForm) {
 
-    createPostForm.addEventListener("submit", async (e) => {
+if(postBtn){
 
-        e.preventDefault();
 
-        if (!auth.currentUser) return;
+postBtn.addEventListener("click", async()=>{
 
-        const text = postText.value.trim();
 
-        if (!text && postImage.files.length === 0) return;
+    const user = auth.currentUser;
 
-        publishPostBtn.disabled = true;
 
-        publishPostBtn.textContent = "Publishing...";
+    if(!user){
 
-        try {
+        alert("Please login first");
 
-            await addDoc(postsRef, {
+        return;
 
-                uid: auth.currentUser.uid,
+    }
 
-                text,
 
-                image: "",
 
-                privacy: postPrivacy.value,
+    const text = postText.value.trim();
 
-                likes: 0,
 
-                comments: 0,
 
-                shares: 0,
+    if(!text && !postImages.files.length){
 
-                createdAt: serverTimestamp()
+        return;
 
-            });
+    }
 
-            await updateDoc(
 
-                doc(db, "users", auth.currentUser.uid),
 
-                {
+    postBtn.disabled = true;
 
-                    postsCount: increment(1)
+    postBtn.textContent="Publishing...";
 
-                }
+
+
+    try{
+
+
+        let imageURL="";
+
+
+
+        // upload image if available
+
+        if(postImages.files.length){
+
+
+            const file = postImages.files[0];
+
+
+            const imageRef = ref(
+
+                storage,
+
+                `posts/${user.uid}/${Date.now()}-${file.name}`
 
             );
 
-            createPostForm.reset();
 
-            imagePreview.src = "";
+            await uploadBytes(imageRef,file);
 
-            imagePreview.style.display = "none";
 
-        } catch (error) {
+            imageURL = await getDownloadURL(imageRef);
 
-            console.error(error);
-
-        } finally {
-
-            publishPostBtn.disabled = false;
-
-            publishPostBtn.textContent = "Publish";
 
         }
 
-    });
+
+
+
+
+        await addDoc(postsRef,{
+
+
+            uid:user.uid,
+
+
+            text:text,
+
+
+            image:imageURL,
+
+
+            privacy:privacy.value,
+
+
+            likes:0,
+
+
+            comments:0,
+
+
+            shares:0,
+
+
+            createdAt:serverTimestamp()
+
+
+        });
+
+
+
+
+        postText.value="";
+
+        postImages.value="";
+
+
+
+    }
+
+    catch(error){
+
+
+        console.error(
+            "Post Error:",
+            error
+        );
+
+
+    }
+
+
+
+    finally{
+
+
+        postBtn.disabled=false;
+
+
+        postBtn.textContent="🚀 Publish";
+
+
+    }
+
+
+
+});
+
 
 }
 
 
+
+
+
 // ======================================
-// LOAD POSTS
+// LOAD POSTS REALTIME
 // ======================================
 
-const feedQuery = query(
+
+const feedQuery=query(
 
     postsRef,
 
-    orderBy("createdAt", "desc")
+    orderBy(
+
+        "createdAt",
+
+        "desc"
+
+    )
 
 );
 
-onSnapshot(feedQuery, (snapshot) => {
 
-    postsContainer.innerHTML = "";
 
-    snapshot.forEach((docSnap) => {
+showLoader();
 
-        const post = docSnap.data();
 
-        const postId = docSnap.id;
 
-        const card = document.createElement("div");
+onSnapshot(feedQuery,(snapshot)=>{
 
-        card.className = "feed-post";
 
-        card.dataset.id = postId;
+    postsContainer.innerHTML="";
 
-        card.innerHTML = `
 
-            <div class="post-content">
 
-                <p>${post.text}</p>
+    snapshot.forEach((docSnap)=>{
 
-                ${post.image ? `<img src="${post.image}">` : ""}
 
-            </div>
+        const post=docSnap.data();
 
-            <div class="post-actions">
 
-                <button class="like-btn">❤️ ${post.likes}</button>
 
-                <button class="comment-btn">💬 ${post.comments}</button>
+        const card=document.createElement("div");
 
-                <button class="share-btn">🔁 ${post.shares}</button>
 
-                <button class="delete-btn">🗑️</button>
+        card.className="post-card";
 
-            </div>
+
+
+        card.innerHTML=`
+
+        <div class="post-content">
+
+
+            <p>
+
+            ${post.text || ""}
+
+            </p>
+
+
+
+            ${
+                post.image ?
+
+                `<img src="${post.image}"
+                class="post-image">`
+
+                :
+
+                ""
+
+            }
+
+
+        </div>
+
+
+
+        <div class="post-actions">
+
+
+            <button>
+
+            👍 ${post.likes || 0}
+
+            </button>
+
+
+            <button>
+
+            💬 ${post.comments || 0}
+
+            </button>
+
+
+            <button>
+
+            🔁 ${post.shares || 0}
+
+            </button>
+
+
+        </div>
 
         `;
 
+
+
         postsContainer.appendChild(card);
+
+
 
     });
 
-});
 
-// CONTINUE PART 2
+
+    hideLoader();
+
+
+
+},
+
+(error)=>{
+
+
+    console.error(
+        "Firebase Feed Error:",
+        error
+    );
+
+
+    hideLoader();
+
+
+});// CONTINUE PART 2
