@@ -1,43 +1,62 @@
+import PostComposer from "@/components/feed/PostComposer";
+import PostCard from "@/components/feed/PostCard";
+
 export default function FeedPage() {
+  const dummyPosts = [
+    {
+      id: 1,
+      user: {
+        name: "Jane Doe",
+        handle: "@janed",
+        avatar: "JD"
+      },
+      content: "Just launched the new version of our app! The Neomorphic design system looks absolutely incredible. 🚀\n\nMassive shoutout to the engineering team for pulling this off in record time.",
+      timeAgo: "2 hours ago",
+      likes: 124,
+      comments: 18
+    },
+    {
+      id: 2,
+      user: {
+        name: "Marcus Johnson",
+        handle: "@marcusj",
+        avatar: "MJ"
+      },
+      content: "Looking for a Senior Frontend Developer to join my team at TechCorp. We're building the future of decentralized finance. \n\nMust have 5+ years of React/Next.js experience. DM me if you're interested! 💼",
+      timeAgo: "5 hours ago",
+      likes: 89,
+      comments: 34
+    },
+    {
+      id: 3,
+      user: {
+        name: "Sarah Chen",
+        handle: "@sarahcodes",
+        avatar: "SC"
+      },
+      content: "Does anyone else find themselves completely rewriting their CSS architecture every 6 months? Tailwind v4 is definitely a game changer though.",
+      timeAgo: "1 day ago",
+      likes: 256,
+      comments: 42
+    }
+  ];
+
   return (
-    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto">
-      <div className="neo-card">
-        <h1 className="text-2xl font-bold mb-2">Feed</h1>
-        <p className="text-secondary">Welcome to your dashboard feed.</p>
+    <div className="w-full">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Your Feed</h1>
+        <p className="text-slate-400 text-lg">Stay updated with your professional network.</p>
       </div>
       
-      {/* Post Composer Placeholder */}
-      <div className="neo-card-sm flex flex-col gap-4">
-        <div className="flex gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary-light flex-shrink-0" />
-          <input 
-            type="text" 
-            className="neo-input" 
-            placeholder="What's on your mind, Elijah?" 
-          />
-        </div>
-        <div className="flex justify-end pt-2 border-t border-border mt-2">
-          <button className="neo-button neo-button-primary text-sm">Post</button>
-        </div>
-      </div>
+      {/* Post Composer */}
+      <PostComposer />
       
-      {/* Post Placeholder */}
-      <div className="neo-card-sm flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-secondary flex-shrink-0" />
-          <div className="flex flex-col">
-            <span className="font-semibold">Jane Doe</span>
-            <span className="text-xs text-tertiary">2 hours ago</span>
-          </div>
-        </div>
-        <p className="text-primary">
-          Just launched the new version of our app! The neomorphic design system looks incredible. 🚀
-        </p>
-        <div className="flex gap-4 pt-3 border-t border-border text-sm text-secondary font-medium">
-          <button className="hover:text-brand transition-colors">Like</button>
-          <button className="hover:text-brand transition-colors">Comment</button>
-          <button className="hover:text-brand transition-colors">Share</button>
-        </div>
+      {/* Feed Timeline */}
+      <div className="flex flex-col">
+        {dummyPosts.map(post => (
+          <PostCard key={post.id} {...post} />
+        ))}
       </div>
     </div>
   );

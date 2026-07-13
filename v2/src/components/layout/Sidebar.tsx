@@ -28,12 +28,15 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 h-screen sticky top-0 bg-surface-raised border-r border-border hidden md:flex flex-col p-4">
-      <div className="mb-8 px-4">
-        <h2 className="text-2xl font-bold text-brand">Rhockstar</h2>
+    <aside className="w-72 h-screen sticky top-0 bg-slate-900/40 backdrop-blur-3xl border-r border-white/5 hidden md:flex flex-col p-6 z-20">
+      <div className="mb-10 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand-purple flex items-center justify-center neo-card shadow-brand/30">
+          <span className="font-extrabold text-white text-lg">R</span>
+        </div>
+        <h2 className="text-xl font-bold font-outfit text-white tracking-tight">Rhockstar</h2>
       </div>
 
-      <nav className="flex flex-col gap-2 flex-1">
+      <nav className="flex flex-col gap-3 flex-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname.startsWith(item.href);
@@ -42,27 +45,27 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-4 px-5 py-3.5 rounded-xl font-medium transition-all group ${
                 isActive 
-                  ? "bg-primary text-white shadow-md shadow-primary/20" 
-                  : "text-secondary hover:bg-surface hover:text-primary hover:shadow-sm"
+                  ? "neo-card bg-slate-800/60 text-brand shadow-[0_0_15px_rgba(56,189,248,0.15)] border-brand/20" 
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/30"
               }`}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-brand' : 'text-slate-500 group-hover:text-white'}`} />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto pt-4 border-t border-border">
-        <div className="flex items-center gap-3 px-4 py-2">
-          <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-white font-bold">
+      <div className="mt-auto pt-6 border-t border-white/10">
+        <div className="neo-card p-4 bg-slate-800/30 flex items-center gap-4 cursor-pointer hover:border-brand/30 transition-colors">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-brand-purple flex items-center justify-center font-bold text-white shadow-[0_0_10px_rgba(56,189,248,0.3)]">
             EP
           </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">Elijah Peter</span>
-            <span className="text-xs text-tertiary">@elijah_p</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="font-semibold text-sm text-white truncate">Elijah Peter</span>
+            <span className="text-xs text-slate-400 truncate">@elijah_p</span>
           </div>
         </div>
       </div>
