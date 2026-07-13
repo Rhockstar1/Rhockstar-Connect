@@ -2,18 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, UserPlus, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { User, Mail, Lock, UserPlus, ArrowRight, AlertCircle } from "lucide-react";
+import { registerUser } from "@/lib/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Register with", { fullName, username, email, password });
-    // TODO: Implement Firebase Auth & User Creation
+    setError("");
+    setLoading(true);
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
+      setLoading(false);
+      return;
+    }
+
+    const { user, error } = await registerUser(email, password, fullName, username);
+
+    if (error) {
+      setError(error);
+      setLoading(false);
+    } else if (user) {
+      router.push("/feed");
+    }
   };
 
   return (
@@ -23,6 +43,13 @@ export default function RegisterPage() {
           <h1 className="text-brand mb-2">Create Account</h1>
           <p className="text-secondary text-sm">Join Rhockstar Connect today</p>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 flex items-start gap-2 text-danger text-sm">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
@@ -86,9 +113,13 @@ export default function RegisterPage() {
             <p className="text-xs text-tertiary ml-2 mt-1">Must be at least 8 characters</p>
           </div>
 
-          <button type="submit" className="neo-button neo-button-primary w-full mt-4 flex items-center justify-center gap-2">
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="neo-button neo-button-primary w-full mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
             <UserPlus className="w-5 h-5" />
-            Create Account
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </form>
 

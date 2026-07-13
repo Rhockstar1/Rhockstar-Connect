@@ -2,16 +2,30 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, Lock, LogIn, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mail, Lock, LogIn, ArrowRight, AlertCircle } from "lucide-react";
+import { loginUser } from "@/lib/auth";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login with", { email, password });
-    // TODO: Implement Firebase Auth
+    setError("");
+    setLoading(true);
+
+    const { user, error } = await loginUser(email, password);
+
+    if (error) {
+      setError(error);
+      setLoading(false);
+    } else if (user) {
+      router.push("/feed");
+    }
   };
 
   return (
@@ -22,13 +36,20 @@ export default function LoginPage() {
           <p className="text-secondary text-sm">Sign in to Rhockstar Connect</p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/20 flex items-start gap-2 text-danger text-sm">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-secondary ml-2">Email or Username</label>
+            <label className="text-sm font-medium text-secondary ml-2">Email Address</label>
             <div className="relative flex items-center">
               <Mail className="absolute left-3 text-tertiary w-5 h-5" />
               <input 
-                type="text" 
+                type="email" 
                 className="neo-input pl-10" 
                 placeholder="you@example.com"
                 value={email}
@@ -59,9 +80,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <button type="submit" className="neo-button neo-button-primary w-full mt-4 flex items-center justify-center gap-2">
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="neo-button neo-button-primary w-full mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
             <LogIn className="w-5 h-5" />
-            Sign In
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 

@@ -1,0 +1,63 @@
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile
+} from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebase";
+
+export const registerUser = async (email: string, password: string, fullName: string, username: string) => {
+  try {
+    // 1. Create user in Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // 2. Update Auth profile
+    await updateProfile(user, {
+      displayName: fullName,
+    });
+
+    // 3. Create Firestore user document
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      fullName,
+      username,
+      email,
+      bio: "",
+      headline: "",
+      location: { city: "", state: "", country: "" },
+      stats: { posts: 0, followers: 0, following: 0, connections: 0 },
+      createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp(),
+    });
+
+    return { user, error: null };
+  } catch (error: any) {
+    return { user: null, error: error.message };
+  }
+};
+
+export const loginUser = async (email: string, password: string) => {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Update lastLogin in Firestore
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      lastLogin: serverTimestamp()
+    }, { merge: true });
+
+    return { user: userCredential.user, error: null };
+  } catch (error: any) {
+    return { user: null, error: error.message };
+  }
+};
+
+export const logoutUser = async () => {
+  try {
+    await signOut(auth);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+};
