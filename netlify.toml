@@ -2,5 +2,35 @@
   command = "npm run build"
   publish = ".next"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+[build.environment]
+  NODE_OPTIONS = "--max-old-space-size=4096"
+  SECRETS_SCAN_OMIT_PATHS = "public/firebase-messaging-sw.js"
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,NEXT_PUBLIC_CLOUDINARY_API_KEY,NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_FIREBASE_APP_ID,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+
+[[redirects]]
+  from = "https://rhockstarconnect1.netlify.app/*"
+  to = "https://rhockstarconnect.com/:splat"
+  status = 301
+  force = true
+
+# Rate Limiting Protection (Netlify Edge)
+[[rate_limits]]
+  for = "/api/*"
+  window_limit = 100
+  window_ms = 60000
+
+[[rate_limits]]
+  for = "/login"
+  window_limit = 15
+  window_ms = 60000
+
+# Global CDN Security Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    Permissions-Policy = "camera=(), microphone=(self), geolocation=()"

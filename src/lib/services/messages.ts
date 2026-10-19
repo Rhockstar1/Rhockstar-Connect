@@ -16,6 +16,8 @@ import {
 } from 'firebase/firestore';
 
 import { createNotification } from './notifications';
+import { getUserById } from './users';
+import { sanitizeText } from '../sanitizer';
 
 export interface Chat {
   id: string;
@@ -24,6 +26,8 @@ export interface Chat {
   lastMessageTime: unknown;
   unreadCount: Record<string, number>;
   typingStatus?: Record<string, boolean>;
+  archivedFor?: string[];
+  deletedFor?: string[];
 }
 
 export interface Message {
@@ -34,6 +38,7 @@ export interface Message {
   type?: 'text' | 'image' | 'audio' | 'document';
   mediaUrl?: string;
   status?: 'sent' | 'delivered' | 'read';
+  readAt?: unknown;
   createdAt: unknown;
   replyToId?: string;
   replyToText?: string;
@@ -45,15 +50,29 @@ export interface Message {
 // Ensure a chat exists between two users
 export const getOrCreateChat = async (userId1: string, userId2: string) => {
   try {
+    // 1. Check deterministic 1-on-1 chat ID first: [id1, id2].sort().join('_')
+    const deterministicId = [userId1, userId2].sort().join('_');
+    const deterministicDocRef = doc(db, 'chats', deterministicId);
+    const deterministicSnap = await getDoc(deterministicDocRef);
+
+    if (deterministicSnap.exists()) {
+      return { success: true, chat: { id: deterministicSnap.id, ...deterministicSnap.data() } as Chat };
+    }
+
+    // 2. Query existing chats to handle legacy non-deterministic random IDs
     const chatsRef = collection(db, 'chats');
     const q = query(chatsRef, where('participants', 'array-contains', userId1));
     const snapshot = await getDocs(q);
     
-    let existingChat = null;
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.participants.includes(userId2)) {
-        existingChat = { id: doc.id, ...data };
+    let existingChat: any = null;
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.participants && data.participants.includes(userId2)) {
+        if (!existingChat) {
+          existingChat = { id: docSnap.id, ...data };
+        } else if (data.lastMessage && !existingChat.lastMessage) {
+          existingChat = { id: docSnap.id, ...data };
+        }
       }
     });
 
@@ -61,8 +80,7 @@ export const getOrCreateChat = async (userId1: string, userId2: string) => {
       return { success: true, chat: existingChat as Chat };
     }
 
-    // Create new chat
-    const newChatRef = doc(collection(db, 'chats'));
+    // 3. Create new chat using deterministic ID to guarantee uniqueness across all concurrent requests
     const newChatData = {
       participants: [userId1, userId2],
       lastMessage: "",
@@ -71,9 +89,9 @@ export const getOrCreateChat = async (userId1: string, userId2: string) => {
       typingStatus: { [userId1]: false, [userId2]: false }
     };
     
-    await setDoc(newChatRef, newChatData);
+    await setDoc(deterministicDocRef, newChatData);
     
-    return { success: true, chat: { id: newChatRef.id, ...newChatData } as Chat };
+    return { success: true, chat: { id: deterministicId, ...newChatData } as Chat };
   } catch (error: unknown) {
     console.error("Error getting or creating chat:", error);
     return { success: false, error: (error as Error).message };
@@ -94,10 +112,11 @@ export const sendMessage = async (
     const messagesRef = collection(db, `chats/${chatId}/messages`);
     const chatRef = doc(db, 'chats', chatId);
 
+    const cleanText = sanitizeText(text, 2000);
     const messageData: any = {
       chatId,
       senderId,
-      text,
+      text: cleanText,
       type,
       status: 'delivered',
       createdAt: serverTimestamp()
@@ -114,26 +133,45 @@ export const sendMessage = async (
 
     await addDoc(messagesRef, messageData);
     
-    await updateDoc(chatRef, {
-      lastMessage: text,
-      lastMessageTime: serverTimestamp()
-    });
-
-    // Notify recipient
+    // Get chat to find recipient
     const chatSnap = await getDoc(chatRef);
     if (chatSnap.exists()) {
       const participants: string[] = chatSnap.data().participants || [];
       const recipientId = participants.find(p => p !== senderId);
+      
+      const { increment, arrayRemove } = await import('firebase/firestore');
+
+      await updateDoc(chatRef, {
+        lastMessage: cleanText.slice(0, 100),
+        lastMessageTime: serverTimestamp(),
+        ...(recipientId ? { 
+          [`unreadCount.${recipientId}`]: increment(1),
+          deletedFor: arrayRemove(recipientId)
+        } : {})
+      });
+
       if (recipientId) {
-        const title = "New Message";
-        const messageBody = type === 'text' ? (text.length > 50 ? `${text.substring(0, 50)}...` : text) : `Sent an ${type}`;
+        // Fetch sender profile to include in notification
+        const { user: senderProfile } = await getUserById(senderId);
+        const senderName = senderProfile?.fullName || 'Someone';
+        const senderAvatar = senderProfile?.avatar || '';
+
+        const currentUnread = chatSnap.data().unreadCount?.[recipientId] || 0;
+        const newUnread = currentUnread + 1;
+
+        const title = newUnread > 1 ? `${newUnread} New Messages from ${senderName}` : `New Message from ${senderName}`;
+        const messageBody = newUnread > 1 ? `You have ${newUnread} unread messages.` : (type === 'text' ? (text.length > 50 ? `${text.substring(0, 50)}...` : text) : `Sent an ${type}`);
         
         await createNotification({
           userId: recipientId,
           type: "message",
           title,
           message: messageBody,
-          link: "/messages"
+          link: `/messages?chatId=${chatId}`,
+          targetId: chatId,
+          senderId: senderId,
+          senderName,
+          senderAvatar
         });
 
         // Trigger FCM Push Notification
@@ -144,7 +182,7 @@ export const sendMessage = async (
             userId: recipientId,
             title,
             body: messageBody,
-            url: "/messages"
+            url: `/messages?chatId=${chatId}`
           })
         }).catch(console.error);
       }
@@ -167,13 +205,66 @@ export const markMessagesAsRead = async (chatId: string, currentUserId: string) 
     const updatePromises: Promise<void>[] = [];
     snapshot.forEach((docSnap) => {
       if (docSnap.data().status !== 'read') {
-        updatePromises.push(updateDoc(doc(db, `chats/${chatId}/messages`, docSnap.id), { status: 'read' }));
+        updatePromises.push(updateDoc(doc(db, `chats/${chatId}/messages`, docSnap.id), { 
+          status: 'read',
+          readAt: serverTimestamp()
+        }));
       }
     });
+
+    // Also clear unreadCount on the chat document
+    updatePromises.push(updateDoc(doc(db, 'chats', chatId), {
+      [`unreadCount.${currentUserId}`]: 0
+    }));
 
     await Promise.all(updatePromises);
   } catch (error) {
     console.error("Error marking messages read:", error);
+  }
+};
+
+// Mark chat as unread
+export const markChatAsUnread = async (chatId: string, userId: string) => {
+  try {
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+      [`unreadCount.${userId}`]: 1
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking chat unread:", error);
+    return { success: false };
+  }
+};
+
+// Archive / Unarchive chat
+export const toggleArchiveChat = async (chatId: string, userId: string, isCurrentlyArchived: boolean) => {
+  try {
+    const chatRef = doc(db, 'chats', chatId);
+    const { arrayUnion, arrayRemove } = await import('firebase/firestore');
+    await updateDoc(chatRef, {
+      archivedFor: isCurrentlyArchived ? arrayRemove(userId) : arrayUnion(userId)
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error toggling archive status:", error);
+    return { success: false };
+  }
+};
+
+// Delete chat conversation for user
+export const deleteChatForUser = async (chatId: string, userId: string) => {
+  try {
+    const chatRef = doc(db, 'chats', chatId);
+    const { arrayUnion } = await import('firebase/firestore');
+    await updateDoc(chatRef, {
+      deletedFor: arrayUnion(userId),
+      [`unreadCount.${userId}`]: 0
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting chat:", error);
+    return { success: false };
   }
 };
 
@@ -230,16 +321,38 @@ export const subscribeToChats = (userId: string, callback: (chats: Chat[]) => vo
   );
   
   return onSnapshot(q, (snapshot) => {
-    const chats: Chat[] = [];
+    const rawChats: Chat[] = [];
     snapshot.forEach((doc) => {
-      chats.push({ id: doc.id, ...doc.data() } as Chat);
+      rawChats.push({ id: doc.id, ...doc.data() } as Chat);
     });
     
-    // Sort in memory to avoid requiring a Firestore composite index
+    // Sort descending by last message time first
+    rawChats.sort((a, b) => {
+      const timeA = (a.lastMessageTime as any)?.toMillis?.() || (a.lastMessageTime as any)?.seconds * 1000 || 0;
+      const timeB = (b.lastMessageTime as any)?.toMillis?.() || (b.lastMessageTime as any)?.seconds * 1000 || 0;
+      return timeB - timeA;
+    });
+
+    // Deduplicate chats per other participant to prevent duplicate threads
+    const chatMap = new Map<string, Chat>();
+    for (const chat of rawChats) {
+      const otherUserId = chat.participants.find(p => p !== userId) || chat.id;
+      if (!chatMap.has(otherUserId)) {
+        chatMap.set(otherUserId, chat);
+      } else {
+        const existing = chatMap.get(otherUserId)!;
+        // If the current one has a message and the existing one does not, use current
+        if (chat.lastMessage && !existing.lastMessage) {
+          chatMap.set(otherUserId, chat);
+        }
+      }
+    }
+
+    const chats = Array.from(chatMap.values());
+    // Re-sort after deduplication
     chats.sort((a, b) => {
-      // Handle Firebase Timestamps
-      const timeA = (a.lastMessageTime as any)?.toMillis?.() || 0;
-      const timeB = (b.lastMessageTime as any)?.toMillis?.() || 0;
+      const timeA = (a.lastMessageTime as any)?.toMillis?.() || (a.lastMessageTime as any)?.seconds * 1000 || 0;
+      const timeB = (b.lastMessageTime as any)?.toMillis?.() || (b.lastMessageTime as any)?.seconds * 1000 || 0;
       return timeB - timeA;
     });
 

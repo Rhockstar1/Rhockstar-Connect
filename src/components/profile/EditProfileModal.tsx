@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { X, Upload, Save, Loader2 } from "lucide-react";
+import { X, Upload, Save, Loader2, ChevronDown, Heart, Shield } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { updateUserProfile, UserBasic } from "@/lib/services/users";
 import { logoutUser } from "@/lib/auth";
-import { uploadBytes, ref, getDownloadURL } from "firebase/storage";
-import { storage } from "@/lib/firebase";
+import { trackEvent } from "@/lib/analytics";
+import { uploadMediaToCloudinary } from "@/lib/services/cloudinary";
 import toast from "react-hot-toast";
 
 interface EditProfileModalProps {
@@ -36,8 +36,27 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
     visibility: profile?.visibility || "public",
   });
 
+  const [socialLinks, setSocialLinks] = useState<{
+    linkedin: string;
+    twitter: string;
+    github: string;
+    instagram: string;
+  }>({
+    linkedin: profile?.socialLinks?.linkedin || "",
+    twitter: profile?.socialLinks?.twitter || "",
+    github: profile?.socialLinks?.github || "",
+    instagram: profile?.socialLinks?.instagram || "",
+  });
+
+  const handleSocialChange = (key: 'linkedin' | 'twitter' | 'github' | 'instagram', value: string) => {
+    setSocialLinks(prev => ({ ...prev, [key]: value }));
+  };
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatar || null);
+
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(profile?.coverImage || null);
   
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeName, setResumeName] = useState<string | null>(profile?.resumeUrl ? "Current Resume Uploaded" : null);
@@ -52,6 +71,14 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
       const file = e.target.files[0];
       setAvatarFile(file);
       setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
     }
   };
 
@@ -104,26 +131,39 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
       }
 
       let avatarUrl = profile.avatar;
+      let coverUrl = profile.coverImage;
       let resumeUrl = profile.resumeUrl;
       
       if (avatarFile) {
         try {
-          // Create a timeout promise to prevent hanging
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error("Upload timed out. Check your internet connection or Firebase Storage rules.")), 15000);
           });
 
-          const storageRef = ref(storage, `avatars/${profile.uid}_${Date.now()}`);
-          
-          // Race the upload against the 15-second timeout
-          const snapshot = await Promise.race([
-            uploadBytes(storageRef, avatarFile),
+          avatarUrl = await Promise.race([
+            uploadMediaToCloudinary(avatarFile, 'avatars', 'image'),
             timeoutPromise
-          ]) as any;
-
-          avatarUrl = await getDownloadURL(snapshot.ref);
+          ]) as string;
         } catch (e: any) {
           toast.error("Avatar upload failed: " + e.message);
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      if (coverFile) {
+        try {
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("Upload timed out.")), 15000);
+          });
+          coverUrl = await Promise.race([
+            uploadMediaToCloudinary(coverFile, 'covers', 'image'),
+            timeoutPromise
+          ]) as string;
+        } catch (e: any) {
+          toast.error("Cover upload failed: " + e.message);
+          setIsSaving(false);
+          return;
         }
       }
 
@@ -132,14 +172,14 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error("Upload timed out.")), 15000);
           });
-          const storageRef = ref(storage, `resumes/${profile.uid}_${Date.now()}_${resumeFile.name}`);
-          const snapshot = await Promise.race([
-            uploadBytes(storageRef, resumeFile),
+          resumeUrl = await Promise.race([
+            uploadMediaToCloudinary(resumeFile, 'resumes', 'auto'),
             timeoutPromise
-          ]) as any;
-          resumeUrl = await getDownloadURL(snapshot.ref);
+          ]) as string;
         } catch (e: any) {
           toast.error("Resume upload failed: " + e.message);
+          setIsSaving(false);
+          return;
         }
       }
 
@@ -157,8 +197,15 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
         education: formData.education,
         certifications: formData.certifications.split(",").map(s => s.trim()).filter(Boolean),
         portfolio: formData.portfolio.split(",").map(s => s.trim()).filter(Boolean),
+        socialLinks: {
+          ...(socialLinks.linkedin.trim() && { linkedin: socialLinks.linkedin.trim() }),
+          ...(socialLinks.twitter.trim() && { twitter: socialLinks.twitter.trim() }),
+          ...(socialLinks.github.trim() && { github: socialLinks.github.trim() }),
+          ...(socialLinks.instagram.trim() && { instagram: socialLinks.instagram.trim() }),
+        },
         visibility: formData.visibility,
         ...(avatarUrl && { avatar: avatarUrl }),
+        ...(coverUrl && { coverImage: coverUrl }),
         ...(resumeUrl && { resumeUrl })
       };
 
@@ -171,6 +218,7 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
           ...updateData
         } as any);
         toast.success("Profile updated successfully");
+          trackEvent("complete_profile");
         onClose();
       } else {
         toast.error("Failed to update profile");
@@ -184,7 +232,7 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="neo-card w-full max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
         
         {/* Header */}
@@ -234,21 +282,42 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
               {/* Personal Info Tab */}
               {activeTab === "personal" && (
                 <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-secondary ml-1">Profile Photo</label>
-                    <div className="flex items-center gap-4">
-                      {avatarPreview ? (
-                        <img src={avatarPreview} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-brand" />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-primary-light flex items-center justify-center text-white text-xl font-bold">
-                          {formData.fullName?.substring(0, 2).toUpperCase() || 'U'}
+                  <div className="flex flex-col md:flex-row gap-6 md:gap-10">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-semibold text-secondary ml-1">Profile Photo</label>
+                      <div className="flex items-center gap-4">
+                        {avatarPreview ? (
+                          <img src={avatarPreview} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-brand shrink-0" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-full bg-primary-light flex items-center justify-center text-white text-xl font-bold shrink-0">
+                            {formData.fullName?.substring(0, 2).toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <div>
+                          <input type="file" id="avatarUpload" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                          <label htmlFor="avatarUpload" className="neo-button text-sm flex items-center gap-2 cursor-pointer">
+                            <Upload className="w-4 h-4" /> Change Photo
+                          </label>
                         </div>
-                      )}
-                      <div>
-                        <input type="file" id="avatarUpload" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                        <label htmlFor="avatarUpload" className="neo-button text-sm flex items-center gap-2 cursor-pointer">
-                          <Upload className="w-4 h-4" /> Change Photo
-                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-semibold text-secondary ml-1">Cover Photo</label>
+                      <div className="flex items-center gap-4">
+                        {coverPreview ? (
+                          <img src={coverPreview} alt="Cover" className="w-32 h-20 rounded-lg object-cover border-2 border-brand shrink-0" />
+                        ) : (
+                          <div className="w-32 h-20 rounded-lg bg-primary-light/50 border-2 border-dashed border-white/20 flex items-center justify-center text-white/50 text-xs shrink-0">
+                            No Cover
+                          </div>
+                        )}
+                        <div>
+                          <input type="file" id="coverUpload" accept="image/*" className="hidden" onChange={handleCoverChange} />
+                          <label htmlFor="coverUpload" className="neo-button text-sm flex items-center gap-2 cursor-pointer">
+                            <Upload className="w-4 h-4" /> Change Cover
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -276,12 +345,16 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-sm font-medium text-secondary ml-1">Relationship Status</label>
-                      <select name="relationship" value={formData.relationship} onChange={handleInputChange} className="neo-input cursor-pointer bg-slate-900 text-white border border-white/10">
-                        <option className="bg-slate-900 text-white">Single</option>
-                        <option className="bg-slate-900 text-white">In a Relationship</option>
-                        <option className="bg-slate-900 text-white">Married</option>
-                        <option className="bg-slate-900 text-white">Complicated</option>
-                      </select>
+                      <div className="relative">
+                        <Heart className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 z-10" />
+                        <select name="relationship" value={formData.relationship} onChange={handleInputChange} className="neo-input pl-11 pr-10 cursor-pointer appearance-none bg-slate-900 text-white border border-white/10">
+                          <option className="bg-slate-900 text-white">Single</option>
+                          <option className="bg-slate-900 text-white">In a Relationship</option>
+                          <option className="bg-slate-900 text-white">Married</option>
+                          <option className="bg-slate-900 text-white">Complicated</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
 
@@ -343,7 +416,7 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
                         </span>
                         {isParsing && (
                           <span className="text-xs text-emerald-400 font-bold animate-pulse">
-                            ✨ Rhockstar AI Parsing...
+                            ⚡ Rhockstar AI Parsing...
                           </span>
                         )}
                       </div>
@@ -355,10 +428,22 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
               {/* Social Links Tab */}
               {activeTab === "social" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                  {['LinkedIn', 'Twitter', 'GitHub', 'Instagram'].map(social => (
-                    <div key={social} className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-secondary ml-1">{social}</label>
-                      <input type="url" className="neo-input" placeholder={`https://${social.toLowerCase()}.com/...`} />
+                  {[
+                    { key: 'linkedin' as const, label: 'LinkedIn', placeholder: 'https://linkedin.com/in/...' },
+                    { key: 'twitter' as const, label: 'Twitter / X', placeholder: 'https://x.com/...' },
+                    { key: 'github' as const, label: 'GitHub', placeholder: 'https://github.com/...' },
+                    { key: 'instagram' as const, label: 'Instagram', placeholder: 'https://instagram.com/...' }
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-secondary ml-1">{label}</label>
+                      <input
+                        type="url"
+                        name={key}
+                        value={socialLinks[key]}
+                        onChange={(e) => handleSocialChange(key, e.target.value)}
+                        className="neo-input focus:border-brand-purple transition-all"
+                        placeholder={placeholder}
+                      />
                     </div>
                   ))}
                 </div>
@@ -369,11 +454,15 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
                 <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-secondary ml-1">Profile Visibility</label>
-                    <select name="visibility" value={formData.visibility} onChange={handleInputChange} className="neo-input cursor-pointer bg-transparent">
-                      <option value="public">Public - Anyone can see</option>
-                      <option value="connections">Connections Only</option>
-                      <option value="private">Private - Only me</option>
-                    </select>
+                    <div className="relative">
+                      <Shield className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 z-10" />
+                      <select name="visibility" value={formData.visibility} onChange={handleInputChange} className="neo-input pl-11 pr-10 cursor-pointer appearance-none bg-slate-900 text-white border border-white/10">
+                        <option value="public" className="bg-slate-900 text-white">Public - Anyone can see</option>
+                        <option value="connections" className="bg-slate-900 text-white">Connections Only</option>
+                        <option value="private" className="bg-slate-900 text-white">Private - Only me</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -382,7 +471,7 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 pb-24 md:pb-4 border-t border-border bg-surface-raised flex justify-end gap-4">
+        <div className="p-4 sm:p-5 border-t border-border bg-surface-raised flex justify-end gap-4">
           <button 
             onClick={onClose}
             disabled={isSaving}
@@ -402,3 +491,5 @@ export default function EditProfileModal({ onClose }: EditProfileModalProps) {
     </div>
   );
 }
+
+

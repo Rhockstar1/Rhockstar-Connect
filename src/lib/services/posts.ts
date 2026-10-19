@@ -1,4 +1,4 @@
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { 
   collection, 
   addDoc, 
@@ -13,10 +13,25 @@ import {
   getDoc,
   deleteDoc,
   getDocs,
-  limit
+  limit,
+  where
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadMediaToCloudinary } from './cloudinary';
 import { UserProfile } from '../../store/useAuthStore';
+import { sanitizeText } from '../sanitizer';
+import { checkContentSafety, logFlaggedContent } from './moderation';
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: string[];
+}
+
+export interface PollData {
+  question: string;
+  options: PollOption[];
+  totalVotes: number;
+}
 
 export interface Post {
   id: string;
@@ -25,15 +40,23 @@ export interface Post {
     name: string;
     handle: string;
     avatar: string;
+    subscriptionTier?: string;
   };
   content: string;
   imageUrl?: string;
+  videoUrl?: string; // Support for Video uploads
   documentUrl?: string; // Support for PDFs/Docs
   documentName?: string;
+  poll?: PollData;
   createdAt: unknown;
   likes: string[];
   commentsCount: number;
   comments?: Comment[];
+}
+
+export interface FeedSnapshotMeta {
+  fromCache: boolean;
+  hasPendingWrites: boolean;
 }
 
 const compressImage = (file: File, maxWidth: number = 1200, quality: number = 0.75): Promise<string> => {
@@ -75,34 +98,32 @@ const compressImage = (file: File, maxWidth: number = 1200, quality: number = 0.
   });
 };
 
-const uploadMediaFile = async (mediaFile: File, userUid: string): Promise<{ url: string, isDocument: boolean }> => {
-  const isDocument = mediaFile.type.includes('pdf') || mediaFile.type.includes('document') || mediaFile.name.endsWith('.pdf');
+const uploadMediaFile = async (mediaFile: File, userUid: string): Promise<{ url: string, isDocument: boolean, isVideo: boolean }> => {
+  const isVideo = mediaFile.type.startsWith('video/') || mediaFile.name.endsWith('.mp4') || mediaFile.name.endsWith('.mov') || mediaFile.name.endsWith('.webm');
+  const isDocument = !isVideo && (mediaFile.type.includes('pdf') || mediaFile.type.includes('document') || mediaFile.name.endsWith('.pdf') || mediaFile.name.endsWith('.doc') || mediaFile.name.endsWith('.docx'));
   let fallbackData = "";
 
-  if (!isDocument) {
+  if (!isDocument && !isVideo) {
     fallbackData = await compressImage(mediaFile);
   }
 
   try {
     const uploadPromise = (async () => {
-      const safeName = mediaFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
-      const storageRef = ref(storage, `posts/${userUid}_${Date.now()}_${safeName}`);
-      const snapshot = await uploadBytes(storageRef, mediaFile);
-      return await getDownloadURL(snapshot.ref);
+      return await uploadMediaToCloudinary(mediaFile, 'posts', isVideo ? 'video' : 'image');
     })();
 
     const timeoutPromise = new Promise<string>((_, reject) => 
-      setTimeout(() => reject(new Error("Storage upload timed out")), 5000)
+      setTimeout(() => reject(new Error("Storage upload timed out")), 15000)
     );
 
     const url = await Promise.race([uploadPromise, timeoutPromise]);
-    return { url, isDocument };
+    return { url, isDocument, isVideo };
   } catch (err) {
     console.warn("Storage upload failed or timed out. Falling back if image:", err);
-    if (!isDocument && fallbackData) {
-      return { url: fallbackData, isDocument: false };
+    if (!isDocument && !isVideo && fallbackData) {
+      return { url: fallbackData, isDocument: false, isVideo: false };
     }
-    throw new Error("Failed to upload document");
+    throw new Error("Failed to upload media");
   }
 };
 
@@ -110,16 +131,37 @@ const uploadMediaFile = async (mediaFile: File, userUid: string): Promise<{ url:
 export const createPost = async (
   user: UserProfile, 
   content: string, 
-  mediaFile?: File | null
+  mediaFile?: File | null,
+  pollData?: PollData | null
 ) => {
   try {
+    // 1. Two-Tier Automated Content Safety Screening
+    const modResult = checkContentSafety(content);
+    if (!modResult.isSafe && modResult.severity === 'severe') {
+      await logFlaggedContent({
+        authorId: user.uid,
+        authorName: user.fullName || user.username,
+        contentType: 'post',
+        contentSnippet: content,
+        severity: 'severe',
+        reason: modResult.flaggedReason || 'Severe safety violation',
+      });
+      return {
+        success: false,
+        error: `Safety Policy Violation: ${modResult.flaggedReason || 'Prohibited content detected.'}`,
+      };
+    }
+
     let imageUrl = null;
+    let videoUrl = null;
     let documentUrl = null;
     let documentName = null;
 
     if (mediaFile) {
       const result = await uploadMediaFile(mediaFile, user.uid);
-      if (result.isDocument) {
+      if (result.isVideo) {
+        videoUrl = result.url;
+      } else if (result.isDocument) {
         documentUrl = result.url;
         documentName = mediaFile.name;
       } else {
@@ -133,21 +175,72 @@ export const createPost = async (
       user: {
         name: user.fullName,
         handle: user.username,
-        avatar: user.avatar || user.fullName.substring(0, 2).toUpperCase()
+        avatar: user.avatar || user.fullName.substring(0, 2).toUpperCase(),
+        ...(user.subscriptionTier && { subscriptionTier: user.subscriptionTier })
       },
-      content,
+      content: sanitizeText(content, 3000),
       ...(imageUrl && { imageUrl }),
+      ...(videoUrl && { videoUrl }),
       ...(documentUrl && { documentUrl, documentName }),
+      ...(pollData && { poll: pollData }),
+      ...(modResult.severity === 'ambiguous' && { isFlaggedForReview: true }),
       createdAt: serverTimestamp(),
       likes: [],
       commentsCount: 0
     };
 
     const docRef = await addDoc(collection(db, 'posts'), postData);
+
+    // 2. If ambiguous (e.g. external Telegram/WhatsApp link), publish but queue in SuperAdmin flagged_content
+    if (modResult.severity === 'ambiguous') {
+      await logFlaggedContent({
+        authorId: user.uid,
+        authorName: user.fullName || user.username,
+        contentType: 'post',
+        targetId: docRef.id,
+        contentSnippet: content,
+        severity: 'ambiguous',
+        reason: modResult.flaggedReason || 'Ambiguous external link solicitation',
+      });
+    }
+
     return { success: true, postId: docRef.id };
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("Error creating post:", error);
-    return { success: false, error: (error as Error).message };
+    return { success: false, error: error.message || "Failed to create post" };
+  }
+};
+
+// Vote on a poll option
+export const votePoll = async (postId: string, optionId: string, userId: string) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    if (!postDoc.exists()) return { success: false, error: "Post not found" };
+
+    const postData = postDoc.data() as Post;
+    if (!postData.poll) return { success: false, error: "Poll not found on this post" };
+
+    const updatedOptions = postData.poll.options.map(opt => {
+      // Remove user from all options first (single choice)
+      const newVotes = opt.votes.filter(id => id !== userId);
+      if (opt.id === optionId) {
+        newVotes.push(userId);
+      }
+      return { ...opt, votes: newVotes };
+    });
+
+    const totalVotes = updatedOptions.reduce((acc, opt) => acc + opt.votes.length, 0);
+
+    await updateDoc(postRef, {
+      "poll.options": updatedOptions,
+      "poll.totalVotes": totalVotes
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error voting on poll:", error);
+    return { success: false, error: error.message || "Failed to submit vote" };
   }
 };
 
@@ -164,20 +257,93 @@ export const updatePost = async (postId: string, newContent: string) => {
 };
 
 // Subscribe to real-time feed updates
-export const subscribeToFeed = (limitCount: number, callback: (posts: Post[]) => void) => {
+export const subscribeToFeed = (
+  limitCount: number,
+  callback: (posts: Post[], meta?: FeedSnapshotMeta) => void
+) => {
   const q = query(
-    collection(db, 'posts'), 
-    orderBy('createdAt', 'desc'),
+    collection(db, "posts"),
+    orderBy("createdAt", "desc"),
     limit(limitCount)
   );
-  
-  return onSnapshot(q, (querySnapshot) => {
-    const posts: Post[] = [];
-    querySnapshot.forEach((doc) => {
-      posts.push({ id: doc.id, ...doc.data() } as Post);
+
+  return onSnapshot(
+    q,
+    { includeMetadataChanges: true },
+    (querySnapshot) => {
+      const posts: Post[] = [];
+
+      querySnapshot.forEach((document) => {
+        posts.push({
+          id: document.id,
+          ...document.data(),
+        } as Post);
+      });
+
+      callback(posts, {
+        fromCache: querySnapshot.metadata.fromCache,
+        hasPendingWrites: querySnapshot.metadata.hasPendingWrites,
+      });
+    },
+    (error) => {
+      console.error("Feed subscription error:", error);
+    }
+  );
+};
+
+// Subscribe to real-time posts authored by a specific user
+export const subscribeToUserPosts = (userId: string, callback: (posts: Post[]) => void) => {
+  let isDone = false;
+  try {
+    const q = query(
+      collection(db, 'posts'), 
+      where('userId', '==', userId)
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      isDone = true;
+      const posts: Post[] = [];
+      querySnapshot.forEach((doc) => {
+        posts.push({ id: doc.id, ...doc.data() } as Post);
+      });
+      // In-memory sort by createdAt descending to avoid composite index requirement
+      posts.sort((a, b) => {
+        const timeA = (a.createdAt as any)?.toMillis?.() || (a.createdAt as any)?.seconds * 1000 || 0;
+        const timeB = (b.createdAt as any)?.toMillis?.() || (b.createdAt as any)?.seconds * 1000 || 0;
+        return timeB - timeA;
+      });
+      callback(posts);
+    }, async (error) => {
+      console.warn("Realtime user posts subscription failed, attempting fallback query:", error);
+      if (!isDone) {
+        try {
+          const fallbackSnap = await getDocs(query(collection(db, 'posts'), limit(60)));
+          const userPosts: Post[] = [];
+          fallbackSnap.forEach(d => {
+            const data = d.data();
+            if (data.userId === userId) {
+              userPosts.push({ id: d.id, ...data } as Post);
+            }
+          });
+          userPosts.sort((a, b) => {
+            const timeA = (a.createdAt as any)?.toMillis?.() || (a.createdAt as any)?.seconds * 1000 || 0;
+            const timeB = (b.createdAt as any)?.toMillis?.() || (b.createdAt as any)?.seconds * 1000 || 0;
+            return timeB - timeA;
+          });
+          callback(userPosts);
+        } catch (e) {
+          console.error("Fallback getDocs also failed:", e);
+          callback([]);
+        }
+      }
     });
-    callback(posts);
-  });
+
+    return unsubscribe;
+  } catch (err) {
+    console.error("Error creating user posts listener:", err);
+    callback([]);
+    return () => {};
+  }
 };
 
 // Fetch feed posts once
@@ -200,6 +366,21 @@ export const getFeedPosts = async (limitCount: number = 20) => {
   }
 };
 
+// Fetch single post by ID
+export const getPostById = async (postId: string) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postSnap = await getDoc(postRef);
+    if (postSnap.exists()) {
+      return { success: true, post: { id: postSnap.id, ...postSnap.data() } as Post };
+    }
+    return { success: false, error: "Post not found" };
+  } catch (error: unknown) {
+    console.error("Error getting post by ID:", error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
 // Toggle a like on a post
 export const toggleLike = async (postId: string, userId: string) => {
   try {
@@ -215,7 +396,6 @@ export const toggleLike = async (postId: string, userId: string) => {
       });
       
       if (!isLiked && postData.userId !== userId) {
-        // Fire and forget notification logic
         (async () => {
           try {
             const { getUserById } = await import('./users');
@@ -231,7 +411,11 @@ export const toggleLike = async (postId: string, userId: string) => {
               type: "like",
               title,
               message: messageBody,
-              link: `/`
+              link: `/feed?postId=${postData.id}#post-${postData.id}`,
+              targetId: postData.id,
+              senderId: userId,
+              senderName: likerName,
+              senderAvatar: userRes.success && userRes.user ? userRes.user.avatar : ''
             });
 
             fetch('/api/notify', {
@@ -241,7 +425,7 @@ export const toggleLike = async (postId: string, userId: string) => {
                 userId: postData.userId,
                 title,
                 body: messageBody,
-                url: "/"
+                url: `/feed?postId=${postData.id}#post-${postData.id}`
               })
             }).catch(console.error);
           } catch (e) {
@@ -266,10 +450,12 @@ export interface Comment {
     name: string;
     handle: string;
     avatar: string;
+    subscriptionTier?: string;
   };
   content: string;
   createdAt: string;
   replyToId?: string;
+  isHidden?: boolean;
 }
 
 // Add a comment to a post
@@ -279,15 +465,17 @@ export const addComment = async (postId: string, user: UserProfile, content: str
     const postSnap = await getDoc(postRef);
 
     if (postSnap.exists()) {
+      const postData = postSnap.data() as Post;
       const newComment: Comment = {
         id: Date.now().toString(),
         userId: user.uid,
         user: {
           name: user.fullName,
           handle: user.username,
-          avatar: user.avatar || user.fullName.substring(0, 2).toUpperCase()
-        },
-        content,
+          avatar: user.avatar || user.fullName.substring(0, 2).toUpperCase(),
+        ...(user.subscriptionTier && { subscriptionTier: user.subscriptionTier })
+      },
+        content: sanitizeText(content, 1000),
         createdAt: new Date().toISOString(),
         ...(replyToId && { replyToId })
       };
@@ -297,6 +485,123 @@ export const addComment = async (postId: string, user: UserProfile, content: str
         comments: [...currentComments, newComment],
         commentsCount: (postSnap.data().commentsCount || 0) + 1
       });
+
+      // Trigger real-time notifications for replies, post author, and mentions
+      (async () => {
+        try {
+          const { createNotification } = await import('./notifications');
+          const notifiedUserIds = new Set<string>();
+
+          if (replyToId) {
+            const parentComment = currentComments.find((c: Comment) => c.id === replyToId);
+            if (parentComment && parentComment.userId !== user.uid) {
+              notifiedUserIds.add(parentComment.userId);
+              const title = "New Reply";
+              const messageBody = `${user.fullName} replied to your comment.`;
+              
+              const replyUrl = `/feed?postId=${postData.id}&commentId=${newComment.id}&openComments=true#comment-${newComment.id}`;
+              await createNotification({
+                userId: parentComment.userId,
+                type: "comment",
+                title,
+                message: messageBody,
+                link: replyUrl,
+                targetId: postData.id,
+                senderId: user.uid,
+                senderName: user.fullName,
+                senderAvatar: user.avatar || ''
+              });
+
+              fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: parentComment.userId,
+                  title,
+                  body: messageBody,
+                  url: replyUrl
+                })
+              }).catch(console.error);
+            }
+          }
+
+          if (postData.userId !== user.uid && !notifiedUserIds.has(postData.userId)) {
+            notifiedUserIds.add(postData.userId);
+            const title = "New Comment";
+            const messageBody = `${user.fullName} commented on your post.`;
+            
+            const commentUrl = `/feed?postId=${postData.id}&commentId=${newComment.id}&openComments=true#comment-${newComment.id}`;
+            await createNotification({
+              userId: postData.userId,
+              type: "comment",
+              title,
+              message: messageBody,
+              link: commentUrl,
+              targetId: postData.id,
+              senderId: user.uid,
+              senderName: user.fullName,
+              senderAvatar: user.avatar || ''
+            });
+
+            fetch('/api/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: postData.userId,
+                title,
+                body: messageBody,
+                url: commentUrl
+              })
+            }).catch(console.error);
+          }
+
+          const mentionMatches = content.match(/@([a-zA-Z0-9_]+)/g);
+          if (mentionMatches && mentionMatches.length > 0) {
+            const { getAllUsers } = await import('./users');
+            const usersRes = await getAllUsers();
+            if (usersRes.success && usersRes.users) {
+              const handles = new Set(mentionMatches.map(m => m.substring(1).toLowerCase()));
+              for (const targetUser of usersRes.users) {
+                if (
+                  handles.has(targetUser.username.toLowerCase()) && 
+                  targetUser.uid !== user.uid && 
+                  !notifiedUserIds.has(targetUser.uid)
+                ) {
+                  notifiedUserIds.add(targetUser.uid);
+                  const title = "New Mention";
+                  const messageBody = `${user.fullName} mentioned you in a comment.`;
+
+                  const mentionUrl = `/feed?postId=${postData.id}&commentId=${newComment.id}&openComments=true#comment-${newComment.id}`;
+                  await createNotification({
+                    userId: targetUser.uid,
+                    type: "comment",
+                    title,
+                    message: messageBody,
+                    link: mentionUrl,
+                    targetId: postData.id,
+                    senderId: user.uid,
+                    senderName: user.fullName,
+                    senderAvatar: user.avatar || ''
+                  });
+
+                  fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId: targetUser.uid,
+                      title,
+                      body: messageBody,
+                      url: mentionUrl
+                    })
+                  }).catch(console.error);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error creating comment notification:", e);
+        }
+      })();
 
       return { success: true };
     }
@@ -340,7 +645,6 @@ export const deleteComment = async (postId: string, commentId: string) => {
 
     if (postSnap.exists()) {
       const currentComments = postSnap.data().comments || [];
-      // Filter out the comment itself AND any replies to it
       const updatedComments = currentComments.filter((c: Comment) => c.id !== commentId && c.replyToId !== commentId);
       
       const removedCount = currentComments.length - updatedComments.length;
@@ -393,3 +697,33 @@ export const deletePost = async (postId: string) => {
     return { success: false, error: (error as Error).message };
   }
 };
+
+// Toggle comment visibility
+export const toggleCommentVisibility = async (postId: string, commentId: string, isHidden: boolean) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postSnap = await getDoc(postRef);
+
+    if (postSnap.exists()) {
+      const currentComments = postSnap.data().comments || [];
+      const updatedComments = currentComments.map((c: any) => {
+        if (c.id === commentId) {
+          return { ...c, isHidden };
+        }
+        return c;
+      });
+
+      await updateDoc(postRef, { comments: updatedComments });
+      return { success: true };
+    }
+    return { success: false, error: 'Post not found' };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+
+
+
+
+
