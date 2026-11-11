@@ -5,6 +5,8 @@ import {
   Users, 
   Search, 
   ShieldCheck, 
+  ShieldAlert,
+  AlertTriangle,
   UserX, 
   UserCheck, 
   Star, 
@@ -13,9 +15,11 @@ import {
   X, 
   CheckCircle2, 
   Calendar,
-  Gift
+  Gift,
+  Eye
 } from "lucide-react";
 import Image from "next/image";
+import { auth } from "@/lib/firebase";
 import { 
   getAllUsersAdmin, 
   updateUserRole, 
@@ -36,6 +40,71 @@ export default function AdminUsersPage() {
   const [grantModalUser, setGrantModalUser] = useState<AdminUser | null>(null);
   const [grantDays, setGrantDays] = useState(30);
   const [grantTier, setGrantTier] = useState<"pro" | "elite" | "free">("pro");
+  const [orphanModalOpen, setOrphanModalOpen] = useState(false);
+  const [orphansList, setOrphansList] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const scanOrphanedUsers = async () => {
+    try {
+      setAuditLoading(true);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        showToast("Session expired. Please log in again.");
+        setAuditLoading(false);
+        return;
+      }
+      const res = await fetch("/api/admin/users/orphans", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAuditLoading(false);
+      if (data.success) {
+        if (data.orphans.length === 0) {
+          showToast("✅ Auth Database Sync Healthy! No orphaned accounts found.");
+        } else {
+          setOrphansList(data.orphans);
+          setOrphanModalOpen(true);
+        }
+      } else {
+        showToast(`Audit failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      setAuditLoading(false);
+      showToast(`Audit error: ${err.message}`);
+    }
+  };
+
+  const handleOrphanAction = async (action: 'purge' | 'heal') => {
+    if (orphansList.length === 0) return;
+    try {
+      setAuditLoading(true);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/users/orphans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action,
+          uids: orphansList.map((o) => o.uid)
+        })
+      });
+      const data = await res.json();
+      setAuditLoading(false);
+      if (data.success) {
+        showToast(data.message);
+        setOrphanModalOpen(false);
+        setOrphansList([]);
+        loadUsers();
+      } else {
+        showToast(`Failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      setAuditLoading(false);
+      showToast(`Action failed: ${err.message}`);
+    }
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -130,8 +199,22 @@ export default function AdminUsersPage() {
             <p className="text-sm text-slate-400">Search, manage roles, grant perks, and enforce moderation</p>
           </div>
         </div>
-        <div className="text-xs font-bold text-slate-400 bg-slate-900/80 px-4 py-2 rounded-xl border border-rose-500/10 self-start sm:self-auto">
-          Total Registered: <span className="text-rose-500 font-black text-sm">{users.length}</span>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={scanOrphanedUsers}
+            disabled={auditLoading}
+            className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-rose-500/20 flex items-center gap-2 transition-all shadow-sm"
+          >
+            {auditLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500" />
+            ) : (
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            )}
+            <span>Audit Auth Sync</span>
+          </button>
+          <div className="text-xs font-bold text-slate-400 bg-slate-900/80 px-4 py-2 rounded-xl border border-rose-500/10">
+            Total Registered: <span className="text-rose-500 font-black text-sm">{users.length}</span>
+          </div>
         </div>
       </div>
 
@@ -144,7 +227,7 @@ export default function AdminUsersPage() {
       )}
 
       {/* CONTROLS BAR: SEARCH & TABS */}
-      <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center bg-slate-900/60 backdrop-blur-md p-4 rounded-2xl border border-rose-500/10">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center bg-slate-900/95 p-4 rounded-2xl border border-rose-500/10">
         {/* SEARCH INPUT */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
@@ -270,6 +353,13 @@ export default function AdminUsersPage() {
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => setSelectedUser(user)}
+                          title="Inspect User Details"
+                          className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => setGrantModalUser(user)}
                           title="Grant Subscription"
                           className="p-2 text-amber-400 hover:bg-amber-500/10 rounded-xl transition-colors"
@@ -314,9 +404,155 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* SUPER ADMIN USER INSPECTOR MODAL */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-xl bg-slate-900 border border-rose-500/30 p-6 rounded-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800/80 p-2 rounded-full border border-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Profile Header */}
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/5">
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-rose-500/20 relative border-2 border-rose-500/30 flex-shrink-0">
+                {selectedUser.avatar ? (
+                  <Image src={selectedUser.avatar} alt={selectedUser.fullName} fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-bold text-rose-500 text-xl">
+                    {selectedUser.fullName.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                  {selectedUser.fullName}
+                  {selectedUser.role === "admin" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                      ADMIN
+                    </span>
+                  )}
+                </h3>
+                <p className="text-sm text-slate-400">@{selectedUser.username}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <a
+                    href={`/profile?uid=${selectedUser.uid}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    View Public Profile ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* User Grid Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email Address</p>
+                <p className="text-sm font-semibold text-white truncate mt-1">{selectedUser.email}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Type</p>
+                <p className="text-sm font-semibold text-white capitalize mt-1">{(selectedUser as any).accountType || 'Job Seeker'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Joined Date</p>
+                <p className="text-sm font-semibold text-white mt-1">
+                  {selectedUser.createdAt?.seconds 
+                    ? new Date(selectedUser.createdAt.seconds * 1000).toLocaleDateString() 
+                    : 'Unknown'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Last Online</p>
+                <p className="text-sm font-semibold text-white mt-1">
+                  {(selectedUser as any).lastSeen?.seconds || (selectedUser as any).lastLogin?.seconds
+                    ? new Date(((selectedUser as any).lastSeen?.seconds || (selectedUser as any).lastLogin?.seconds) * 1000).toLocaleDateString()
+                    : 'Unknown'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Subscription Tier</p>
+                <p className="text-sm font-semibold text-amber-400 uppercase mt-1">
+                  {selectedUser.subscriptionTier || 'FREE'}
+                  {selectedUser.subscriptionStatus === 'active' && ' (ACTIVE)'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Status</p>
+                <p className={`text-sm font-semibold mt-1 ${selectedUser.isBanned ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {selectedUser.isBanned ? 'Banned' : 'Active'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Activity Stats</p>
+                <p className="text-sm font-semibold text-white mt-1">
+                  {(selectedUser as any).stats?.posts || 0} Posts • {(selectedUser as any).stats?.connections || (selectedUser as any).connections || 0} Connections
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">User ID (UID)</p>
+                <p className="text-xs font-mono text-slate-400 truncate mt-1">{selectedUser.uid}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Referrals</p>
+                <p className="text-sm font-semibold text-white mt-1">{selectedUser.referralCount || 0} Members Invited</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-4 border-t border-white/5 flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  const u = selectedUser;
+                  setSelectedUser(null);
+                  setGrantModalUser(u);
+                }}
+                className="flex-1 py-2.5 px-4 bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-black rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Gift className="w-4 h-4" />
+                Grant Perks
+              </button>
+
+              <button
+                onClick={() => handleRoleToggle(selectedUser)}
+                className="flex-1 py-2.5 px-4 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500 hover:text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                {selectedUser.role === "admin" ? "Demote Admin" : "Make Admin"}
+              </button>
+
+              <button
+                onClick={() => handleBanToggle(selectedUser)}
+                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  selectedUser.isBanned
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-black"
+                    : "bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-black"
+                }`}
+              >
+                {selectedUser.isBanned ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                {selectedUser.isBanned ? "Unban Account" : "Ban Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* GRANT SUBSCRIPTION MODAL */}
       {grantModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in">
           <div className="w-full max-w-md bg-slate-900 border border-rose-500/30 p-6 rounded-2xl shadow-2xl relative">
             <button
               onClick={() => setGrantModalUser(null)}
@@ -370,6 +606,59 @@ export default function AdminUsersPage() {
                 Apply Perks Now
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ORPHANED ACCOUNTS AUDIT MODAL */}
+      {orphanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl relative">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2 text-amber-400 font-bold">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="text-lg text-white">Auth Sync Audit ({orphansList.length})</h3>
+              </div>
+              <button onClick={() => setOrphanModalOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 mb-4 leading-relaxed">
+              Found <strong className="text-amber-400">{orphansList.length}</strong> account(s) present in Firebase Authentication that are missing their database profile documents in Firestore:
+            </p>
+
+            <div className="max-h-52 overflow-y-auto space-y-2 mb-6 pr-1">
+              {orphansList.map((orphan) => (
+                <div key={orphan.uid} className="p-2.5 rounded-xl bg-slate-950 border border-white/5 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-semibold text-white">{orphan.email || "No email"}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">UID: {orphan.uid}</div>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {orphan.creationTime ? new Date(orphan.creationTime).toLocaleDateString() : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => handleOrphanAction("heal")}
+                disabled={auditLoading}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+              >
+                {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Heal & Create Profiles
+              </button>
+              <button
+                onClick={() => handleOrphanAction("purge")}
+                disabled={auditLoading}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+              >
+                {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Purge Orphans from Auth
+              </button>
+            </div>
           </div>
         </div>
       )}

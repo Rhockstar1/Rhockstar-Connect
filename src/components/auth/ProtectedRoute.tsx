@@ -5,8 +5,12 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuthStore();
+export default function ProtectedRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, profile, isLoading, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -15,19 +19,116 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (user && mounted) {
-      import('@/lib/services/notifications').then(({ requestNotificationPermission }) => {
-        requestNotificationPermission(user.uid);
-      }).catch(console.error);
-    }
-  }, [user, mounted]);
+ useEffect(() => {
+  if (!user || !mounted) return;
 
-  const isPublicRoute = 
-    pathname === "/feed" || 
-    pathname.startsWith("/profile") || 
-    pathname === "/jobs" || 
-    pathname === "/terms";
+  let unsubscribe: (() => void) | undefined;
+  let cancelled = false;
+
+  import("@/lib/services/notifications")
+    .then(
+      ({
+        requestNotificationPermission,
+        subscribeToNotifications,
+      }) => {
+        if (cancelled) return;
+
+        requestNotificationPermission(user.uid);
+
+        unsubscribe = subscribeToNotifications(
+          user.uid,
+          (notifications) => {
+            const unreadCount = notifications.filter(
+              (notification) => !notification.read
+            ).length;
+
+            useAuthStore
+              .getState()
+              .setUnreadNotifications(unreadCount);
+          }
+        );
+      }
+    )
+    .catch(console.error);
+
+  return () => {
+    cancelled = true;
+
+    if (unsubscribe) {
+      unsubscribe();
+    }
+
+    useAuthStore
+      .getState()
+      .setUnreadNotifications(0);
+  };
+}, [user, mounted]);
+
+  const isPublicRoute =
+    pathname === "/feed" ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/company") ||
+    pathname === "/jobs" ||
+    pathname === "/terms" ||
+    pathname === "/privacy";
+
+  useEffect(() => {
+    const checkExpiration = async () => {
+      if (
+        !isLoading &&
+        profile &&
+        profile.premiumUntil &&
+        profile.subscriptionTier &&
+        profile.subscriptionTier !== "free"
+      ) {
+        const expirationDate = new Date(profile.premiumUntil);
+
+        if (expirationDate < new Date()) {
+          import("firebase/firestore").then(
+            async ({ doc, updateDoc }) => {
+              const { db } = await import("@/lib/firebase");
+
+              await updateDoc(doc(db, "users", profile.uid), {
+                subscriptionTier: "free",
+                subscriptionStatus: "inactive",
+              }).catch((err) => {
+                console.warn("[ProtectedRoute] Server rule protected subscriptionTier update:", err);
+              });
+
+              import("react-hot-toast").then(({ toast }) => {
+                toast.error(
+                  "Your Premium subscription has expired."
+                );
+              });
+
+              useAuthStore.getState().setProfile({
+                ...profile,
+                subscriptionTier: "free",
+                subscriptionStatus: "inactive",
+              } as any);
+            }
+          ).catch((err) => {
+            console.warn("[ProtectedRoute] Expiration check handler notice:", err);
+          });
+        }
+      }
+    };
+
+    checkExpiration();
+  }, [profile, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading && profile?.isBanned) {
+      import("react-hot-toast").then(({ toast }) => {
+        toast.error(
+          "Your account has been banned due to policy violations."
+        );
+      });
+
+      logout();
+      router.replace("/login");
+    }
+  }, [profile, isLoading, logout, router]);
 
   useEffect(() => {
     if (!isLoading && !user && !isPublicRoute) {
@@ -37,9 +138,21 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         router.replace("/login");
       }
     }
-  }, [user, isLoading, router, pathname, isPublicRoute]);
+  }, [
+    user,
+    isLoading,
+    router,
+    pathname,
+    isPublicRoute,
+  ]);
 
-  if (!mounted || isLoading) {
+  if (!mounted) {
+    return null;
+  }
+
+  // Only block rendering with a full-page spinner if the route is strictly private
+  // Public routes (like /feed, /jobs, /profile) render immediately with their own cached data or skeletons
+  if (!isPublicRoute && isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] w-full">
         <Loader2 className="w-8 h-8 animate-spin text-brand" />

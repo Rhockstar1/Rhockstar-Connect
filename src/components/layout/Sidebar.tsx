@@ -13,44 +13,54 @@ import {
   Bell, 
   Settings, 
   Heart,
-  LogOut,
   Sparkles,
+  TrendingUp,
   ChevronLeft,
   ChevronRight,
   Gift,
   Shield,
-  Search
-} from "lucide-react";
+  Search,
+  Building2,
+  Plus,
+  AlertTriangle,
+  Megaphone } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useSearchStore } from "@/store/useSearchStore";
-import { logoutUser } from "@/lib/auth";
+import QuickCreateModal from "@/components/layout/QuickCreateModal";
+import UserAvatar from "@/components/ui/UserAvatar";
+import { calculateProfileProgress } from "@/lib/utils/profileProgress";
 
 export default function Sidebar() {
-  const { profile, logout } = useAuthStore();
+  const { profile, logout, unreadNotifications, unreadMessages, unreadCommunities } = useAuthStore();
   const { openSearch } = useSearchStore();
   const pathname = usePathname();
   const router = useRouter();
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const isPremium = profile?.subscriptionTier === 'pro' || profile?.subscriptionTier === 'elite';
+  const isEmployer = (profile?.accountType === 'employer' || profile?.role === 'admin' || (profile as any)?.role === 'employer') && (profile?.subscriptionTier === 'elite' || profile?.role === 'admin');
+  const profileProgress = calculateProfileProgress(profile);
 
-  const handleLogout = async () => {
-    await logoutUser();
-    logout();
-    router.push('/login');
-  };
 
   const primaryNavItems = [
-    { name: "Feed", href: "/feed", icon: Home },
+    { name: "Home", href: "/feed", icon: Home },
     { name: "Network", href: "/network", icon: Users },
     { name: "Jobs", href: "/jobs", icon: Briefcase },
-    { name: "Messages", href: "/messages", icon: MessageSquare },
+    ...(isEmployer ? [{ name: "Employer Portal", href: "/employer", icon: Building2 }] : []),
+    { 
+      name: "Messages", 
+      href: "/messages", 
+      icon: MessageSquare, 
+      badge: unreadMessages > 0 ? (unreadMessages > 99 ? '99+' : unreadMessages.toString()) : undefined,
+      hasIndicator: unreadMessages === 0 && unreadCommunities > 0,
+    },
     { name: "Dating", href: "/dating", icon: Heart },
-    { name: "Notifications", href: "/notifications", icon: Bell },
+    { name: "Notifications", href: "/notifications", icon: Bell, badge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications.toString()) : undefined },
   ].filter(item => !(item.name === "Dating" && profile?.accountType === 'employer'));
 
   const secondaryNavItems = [
     { name: "Search", href: "/search", icon: Search },
-    { name: "Insights", href: "/insights", icon: Sparkles }, // Wait, BarChart2 is not imported. Use Sparkles or Bell
+    { name: "Insights", href: "/insights", icon: TrendingUp },
     { name: "Career Hub", href: "/resources/career", icon: Briefcase },
     { name: "Rewards", href: "/referrals", icon: Gift },
     { name: "Settings", href: "/settings", icon: Settings },
@@ -67,13 +77,12 @@ export default function Sidebar() {
       {/* Header / Logo */}
       <div className={`p-6 flex items-center ${isMinimized ? "justify-center" : "justify-between"}`}>
         {!isMinimized ? (
-          <Link href="/feed" className="flex items-center gap-3 group pl-2 mt-2">
-            <Image src="/icon.png" alt="Rhockstar Connect" width={40} height={40} className="object-contain group-hover:opacity-80 transition-opacity" />
-            <span className="font-extrabold text-2xl tracking-tight text-white hidden xl:block">Rhockstar <span className="text-brand">Connect</span></span>
+          <Link href="/feed" className="flex items-center justify-center group pl-2 mt-2 w-full">
+            <Image src="/icon.png" alt="Rhockstar Connect" width={140} height={140} className="object-contain group-hover:opacity-80 transition-opacity" />
           </Link>
         ) : (
           <Link href="/feed" className="flex justify-center group">
-            <Image src="/icon.png" alt="RC" width={40} height={40} className="group-hover:opacity-80 transition-opacity" />
+            <Image src="/icon.png" alt="RC" width={56} height={56} className="group-hover:opacity-80 transition-opacity" />
           </Link>
         )}
         
@@ -101,23 +110,73 @@ export default function Sidebar() {
       {/* Profile on Top */}
       <div className="px-6 mb-6">
         <Link href="/profile" className={`block neo-card p-3 flex items-center ${isMinimized ? "justify-center" : "gap-3"} bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-white/5 hover:border-brand/30 transition-all group cursor-pointer`}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-brand-purple flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] shrink-0 group-hover:scale-105 transition-transform">
-            {profile?.fullName?.charAt(0) || 'U'}
-          </div>
+          <UserAvatar 
+            src={profile?.avatar} 
+            name={profile?.fullName || 'User'} 
+            className="w-10 h-10 rounded-xl shrink-0 group-hover:scale-105 transition-transform" 
+            textClassName="font-bold text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+          />
           {!isMinimized && (
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-white truncate group-hover:text-brand transition-colors">{profile?.fullName || 'User'}</p>
+              <div className="flex items-start gap-1.5 flex-col xl:flex-row xl:items-center">
+                <p className="text-sm font-bold text-white line-clamp-2 leading-tight group-hover:text-brand transition-colors">{profile?.fullName || 'User'}</p>
                 {isPremium && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase shrink-0">
                     {profile.subscriptionTier}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 truncate">@{profile?.username || 'user'}</p>
+              <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">@{profile?.username || 'user'}</p>
             </div>
           )}
         </Link>
+
+        {/* Profile Completion Indicator if < 85% */}
+        {profile && profileProgress.percentage < 85 && (
+          <Link
+            href="/profile?edit=true"
+            className={`block mt-2 p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/20 hover:border-purple-500/40 transition-all group ${
+              isMinimized ? "text-center px-1" : ""
+            }`}
+            title="Complete your profile to unlock job applications and more connections"
+          >
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              {!isMinimized && (
+                <span className="font-bold text-purple-300 group-hover:text-white transition-colors flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-purple-400" />
+                  Profile Strength
+                </span>
+              )}
+              <span className={`font-extrabold text-purple-400 ${isMinimized ? "w-full text-center" : ""}`}>
+                {profileProgress.percentage}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-emerald-400"
+                style={{ width: `${Math.max(profileProgress.percentage, 8)}%` }}
+              />
+            </div>
+            {!isMinimized && (
+              <p className="text-[10px] text-slate-400 group-hover:text-purple-200 transition-colors mt-1.5 truncate">
+                + {profileProgress.missingItems[0] || "Update profile"}
+              </p>
+            )}
+          </Link>
+        )}
+
+        {/* Quick Create Action Button */}
+        <button
+          onClick={() => setIsCreateOpen(true)}
+          className={`w-full flex items-center ${isMinimized ? "justify-center px-0" : "gap-3 px-5"} py-3 mt-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg transition-all active:scale-95 group`}
+          title="Create New Content"
+          id="tour-create-btn"
+        >
+          <div className="p-1 rounded-lg bg-white/20 text-white group-hover:scale-110 transition-transform">
+            <Plus className="w-4 h-4" />
+          </div>
+          {!isMinimized && <span>Create</span>}
+        </button>
       </div>
 
       <nav className="flex flex-col gap-2 px-4 flex-1">
@@ -129,6 +188,7 @@ export default function Sidebar() {
           return (
             <Link
               key={item.name}
+              id={`tour-${item.name.toLowerCase()}-nav`}
               href={item.href}
               prefetch={true}
               className={`flex items-center ${isMinimized ? "justify-center px-0" : "gap-4 px-5"} py-3 rounded-xl font-semibold transition-all group relative ${
@@ -138,8 +198,32 @@ export default function Sidebar() {
               }`}
               title={isMinimized ? item.name : undefined}
             >
-              <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-brand' : 'text-slate-500 group-hover:text-white'}`} />
-              {!isMinimized && <span>{item.name}</span>}
+              <div className="relative shrink-0">
+                <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-brand' : 'text-slate-500 group-hover:text-white'}`} />
+                {item.hasIndicator && !item.badge && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse" />
+                )}
+                {item.badge && isMinimized && (
+                  <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[9px] font-black rounded-full shadow-lg border border-slate-900">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              {!isMinimized && (
+                <div className="flex-1 flex items-center justify-between min-w-0">
+                  <span className="truncate">{item.name}</span>
+                  {item.badge ? (
+                    <span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[10px] font-black rounded-full shadow-lg shadow-purple-500/20 shrink-0">
+                      {item.badge}
+                    </span>
+                  ) : item.hasIndicator ? (
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 animate-pulse shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      New
+                    </span>
+                  ) : null}
+                </div>
+              )}
               {isActive && isMinimized && (
                 <div className="absolute right-1 w-1.5 h-1.5 rounded-full bg-brand" />
               )}
@@ -206,9 +290,37 @@ export default function Sidebar() {
 
       {/* BOTTOM SECTION */}
       <div className="p-4 mt-8 space-y-4">
-        {/* PREMIUM CARD */}
-        {!isPremium && (
-          !isMinimized ? (
+        {/* PREMIUM / RENEWAL CARD */}
+        {!isPremium && (() => {
+          const isSubExpired = Boolean(
+            profile?.premiumUntil &&
+            new Date(profile.premiumUntil) < new Date() &&
+            (!isPremium || profile?.subscriptionTier === 'free' || profile?.subscriptionStatus === 'inactive')
+          );
+
+          if (isSubExpired) {
+            return !isMinimized ? (
+              <div className="neo-card p-4 bg-gradient-to-br from-rose-500/20 via-amber-500/10 to-slate-900 border border-rose-500/40 relative overflow-hidden group shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+                <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors" />
+                <div className="relative z-10 text-center">
+                  <h4 className="font-extrabold text-rose-400 mb-1 flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                    <span>Plan Expired</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300 mb-3 leading-tight">Perks & verified badge paused. Renew to restore access.</p>
+                  <Link href="/premium" className="block w-full py-2 bg-gradient-to-r from-rose-500 to-amber-500 text-white text-xs font-black rounded-xl shadow-lg hover:brightness-110 transition-all uppercase tracking-wide">
+                    Renew Plan
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <Link href="/premium" className="flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 border border-rose-500/40 group hover:border-rose-500/70 transition-colors" title="Subscription Expired - Renew Plan">
+                <AlertTriangle className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform animate-pulse" />
+              </Link>
+            );
+          }
+
+          return !isMinimized ? (
             <div className="neo-card p-4 bg-gradient-to-br from-brand-purple/20 to-brand/20 border-brand-purple/30 relative overflow-hidden group">
               <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors" />
               <div className="relative z-10 text-center">
@@ -226,8 +338,8 @@ export default function Sidebar() {
             <Link href="/premium" className="flex items-center justify-center p-3 rounded-xl bg-gradient-to-br from-brand-purple/20 to-brand/20 border border-brand-purple/30 group hover:border-brand-purple/60 transition-colors" title="Upgrade to Premium">
               <Sparkles className="w-5 h-5 text-brand-purple group-hover:scale-110 transition-transform animate-pulse" />
             </Link>
-          )
-        )}
+          );
+        })()}
 
         {/* SUPER ADMIN SHORTCUT */}
         {profile?.role === 'admin' && (
@@ -241,16 +353,17 @@ export default function Sidebar() {
           </Link>
         )}
 
-        {/* LOGOUT */}
-        <button 
-          onClick={handleLogout}
-          title={isMinimized ? "Log Out" : undefined}
-          className={`w-full p-3 rounded-xl flex items-center ${isMinimized ? "justify-center" : "justify-center gap-2"} text-rose-500 bg-rose-500/10 hover:bg-rose-500 hover:text-white transition-all border border-rose-500/20 shadow-lg`}
-        >
-          <LogOut className="w-5 h-5" />
-          {!isMinimized && <span className="text-sm font-bold">Log Out</span>}
-        </button>
       </div>
+
+      {/* Quick Create Action Modal */}
+      <QuickCreateModal 
+        isOpen={isCreateOpen} 
+        onClose={() => setIsCreateOpen(false)} 
+      />
     </aside>
   );
 }
+
+
+
+

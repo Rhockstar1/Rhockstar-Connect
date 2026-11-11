@@ -10,7 +10,18 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
+import { useAuthStore, UserProfile } from "@/store/useAuthStore";
 import { recordReferral } from "./services/referrals";
+
+const RESERVED_USERNAMES = [
+  'admin', 'administrator', 'support', 'help', 'team', 'official', 'verified', 'verify', 
+  'security', 'system', 'moderator', 'mod', 'staff', 'founder', 'ceo', 'owner', 'developer', 
+  'dev', 'news', 'updates', 'blog', 'careers', 'jobs', 'ads', 'advertise', 'business', 
+  'press', 'media', 'privacy', 'legal', 'terms', 'community', 'events', 'feedback', 
+  'report', 'appeal', 'notifications', 'api', 'bot', 'ai', 'assistant', 'store', 'market', 
+  'payments', 'wallet', 'rhockstarconnect', 'rhockstarnation', 
+  'rhockstar_support', 'rhockstar_help', 'rhockstar_official', 'connectsupport', 'connectadmin'
+];
 
 export const registerUser = async (
   email: string, 
@@ -20,47 +31,130 @@ export const registerUser = async (
   referralCode?: string,
   accountType: 'standard' | 'employer' = 'standard'
 ) => {
-  try {
-    // 1. Create user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+  const cleanUsername = username.toLowerCase().replace('@', '').replace(/[^a-z0-9_]/g, '').trim();
+  if (RESERVED_USERNAMES.includes(cleanUsername)) {
+    return { user: null, error: "This username is reserved and cannot be used." };
+  }
 
-    // 2. Update Auth profile
-    await updateProfile(user, {
-      displayName: fullName,
+  // Primary Path: Server-side API registration with full Firebase Admin SDK
+  // This executes with server-level privileges, completely eliminating client Firestore rule / permission errors.
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        fullName: fullName.trim(),
+        username: cleanUsername,
+        referralCode: referralCode?.trim(),
+        accountType,
+      })
     });
 
-    // 3. Create Firestore user document
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      fullName,
-      username: username.toLowerCase().replace('@', ''),
-      email,
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data.success) {
+      // Server-side registration completed cleanly! Now sign in client-side to establish browser session
+      const signInResult = await signInWithEmailAndPassword(auth, email.trim(), password);
+
+      // Sync auth store immediately
+      try {
+        const userDocRef = doc(db, "users", signInResult.user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          useAuthStore.getState().setProfile(userDocSnap.data() as UserProfile);
+        }
+        useAuthStore.getState().setUser(signInResult.user);
+        useAuthStore.getState().setLoading(false);
+      } catch (syncErr) {
+        console.warn("Profile sync warning after registration:", syncErr);
+      }
+
+      return { user: signInResult.user, error: null };
+    }
+
+    // Real validation error (e.g. username taken, email registered, password invalid)
+    if (res.status === 400 && data.error) {
+      return { user: null, error: data.error };
+    }
+
+    // If server returned fallback or non-400 status, seamlessly fall through to client registration
+    if (!data.fallback) {
+      console.warn("Server API returned non-400 status, falling back to direct client registration:", res.status, data);
+    }
+  } catch (apiErr: any) {
+    console.warn("API registration unreachable, attempting direct client fallback:", apiErr);
+  }
+
+  // Fallback Path: Direct client SDK registration
+  let createdAuthUser: any = null;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    createdAuthUser = userCredential.user;
+
+    await updateProfile(createdAuthUser, {
+      displayName: fullName.trim(),
+    });
+
+    // Create user document in Firestore without protected keys
+    await setDoc(doc(db, "users", createdAuthUser.uid), {
+      uid: createdAuthUser.uid,
+      fullName: fullName.trim(),
+      username: cleanUsername,
+      email: email.trim(),
       accountType,
       bio: "",
       headline: "",
       location: { city: "", state: "", country: "" },
       stats: { posts: 0, followers: 0, following: 0, connections: 0 },
-      referralCode: username.toLowerCase().replace('@', ''),
+      referralCode: cleanUsername,
       referralCount: 0,
       referredFriends: [],
-      claimedRewards: [],
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp(),
     });
 
-    // 4. Record referral if referral code was provided
     if (referralCode && referralCode.trim()) {
-      await recordReferral(referralCode, user.uid, fullName);
+      try {
+        await recordReferral(referralCode, createdAuthUser.uid, fullName);
+      } catch (refErr) {
+        console.warn("Referral recording fallback warning:", refErr);
+      }
     }
 
-    return { user, error: null };
-  } catch (error: unknown) {
-    return { user: null, error: (error as Error).message };
+    try {
+      const userDocRef = doc(db, "users", createdAuthUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        useAuthStore.getState().setProfile(userDocSnap.data() as UserProfile);
+      }
+      useAuthStore.getState().setUser(createdAuthUser);
+      useAuthStore.getState().setLoading(false);
+    } catch (syncErr) {
+      console.warn("Profile sync warning after registration:", syncErr);
+    }
+
+    return { user: createdAuthUser, error: null };
+  } catch (clientErr: any) {
+    if (createdAuthUser) {
+      try {
+        await createdAuthUser.delete();
+      } catch (delErr) {
+        console.warn("Client rollback delete warning:", delErr);
+      }
+    }
+
+    const rawMsg = clientErr?.message || "An unexpected error occurred during registration.";
+    if (rawMsg.includes("auth/email-already-in-use")) {
+      return { 
+        user: null, 
+        error: "This email address is already registered. If you already have an account, please log in or reset your password." 
+      };
+    }
+    return { user: null, error: rawMsg };
   }
 };
-
-import { useAuthStore, UserProfile } from "@/store/useAuthStore";
 
 export const loginUser = async (emailOrUsername: string, password: string, rememberMe: boolean = true) => {
   try {
@@ -105,48 +199,50 @@ export const loginUser = async (emailOrUsername: string, password: string, remem
     try {
       const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
       
-      const updateData: any = { lastLogin: serverTimestamp() };
-      if (emailToUse.toLowerCase() === "elijah@rhockstarconnect.com") {
-        updateData.role = "admin";
+      // Check if banned & auto-heal missing profile document
+      const userDocRef = doc(db, "users", userCredential.user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists() && userDocSnap.data().isBanned) {
+        await signOut(auth);
+        return { user: null, error: "Your account has been banned due to policy violations." };
       }
 
-      await setDoc(doc(db, "users", userCredential.user.uid), updateData, { merge: true });
+      if (!userDocSnap.exists()) {
+        // Auto-heal missing profile document so user is never broken or invisible
+        const rawEmailName = (userCredential.user.email?.split('@')[0] || "user")
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 15);
+        const generatedUsername = `${rawEmailName}${Math.floor(100 + Math.random() * 900)}`;
+
+        const fallbackProfile = {
+          uid: userCredential.user.uid,
+          fullName: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || "Rhockstar Member",
+          username: generatedUsername,
+          email: userCredential.user.email || emailToUse,
+          accountType: "standard",
+          bio: "",
+          headline: "",
+          location: { city: "", state: "", country: "" },
+          stats: { posts: 0, followers: 0, following: 0, connections: 0 },
+          referralCode: generatedUsername,
+          referralCount: 0,
+          referredFriends: [],
+          claimedRewards: [],
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+        };
+
+        await setDoc(userDocRef, fallbackProfile);
+      } else {
+        const updateData: any = { lastLogin: serverTimestamp() };
+        await setDoc(userDocRef, updateData, { merge: true });
+      }
+
       await syncAuthStore(userCredential.user.uid, userCredential.user);
 
       return { user: userCredential.user, error: null };
     } catch (authErr: any) {
-      // Check if user recently reset password directly in Firestore
-      const usersRef = collection(db, "users");
-      let q = query(usersRef, where("email", "==", emailToUse.toLowerCase()));
-      let snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        q = query(usersRef, where("username", "==", inputClean.toLowerCase().replace('@', '')));
-        snapshot = await getDocs(q);
-      }
-
-      if (!snapshot.empty) {
-        const userDoc = snapshot.docs[0];
-        const userData = userDoc.data();
-
-        if (userData.updatedPasswordHint && userData.updatedPasswordHint === password) {
-          const fakeUser: any = {
-            uid: userDoc.id,
-            email: userData.email,
-            displayName: userData.fullName
-          };
-
-          const updateData: any = { lastLogin: serverTimestamp() };
-          if (userData.email?.toLowerCase() === "elijah@rhockstarconnect.com") {
-            updateData.role = "admin";
-          }
-          await setDoc(doc(db, "users", userDoc.id), updateData, { merge: true });
-          await syncAuthStore(userDoc.id, fakeUser);
-
-          return { user: fakeUser, error: null };
-        }
-      }
-
       throw authErr;
     }
   } catch (error: unknown) {
@@ -154,35 +250,6 @@ export const loginUser = async (emailOrUsername: string, password: string, remem
   }
 };
 
-export const resetPasswordDirect = async (identifier: string, newPassword: string) => {
-  try {
-    const cleanId = identifier.trim().toLowerCase().replace('@', '');
-    const usersRef = collection(db, "users");
-    
-    // Search by username or email
-    let q = query(usersRef, where("username", "==", cleanId));
-    let snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-      q = query(usersRef, where("email", "==", identifier.trim().toLowerCase()));
-      snapshot = await getDocs(q);
-    }
-    
-    if (snapshot.empty) {
-      return { success: false, error: "No account found matching that email or username." };
-    }
-    
-    const userDoc = snapshot.docs[0];
-    await updateDoc(doc(db, "users", userDoc.id), {
-      passwordUpdated: serverTimestamp(),
-      updatedPasswordHint: newPassword
-    });
-
-    return { success: true, email: userDoc.data().email };
-  } catch (error: unknown) {
-    return { success: false, error: (error as Error).message };
-  }
-};
 
 export const logoutUser = async () => {
   try {

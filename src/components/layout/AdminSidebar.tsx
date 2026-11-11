@@ -3,37 +3,51 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Users, Shield, TrendingUp, AlertTriangle, Star, Settings, LogOut, UserCheck, Menu, X, Gift } from "lucide-react";
+import { Users, Shield, TrendingUp, AlertTriangle, Star, Settings, LogOut, UserCheck, Menu, X, Gift, Home, Briefcase, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { useAuthStore } from "@/store/useAuthStore";
 import { logoutUser } from "@/lib/auth";
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  mobileOpen?: boolean;
+  setMobileOpen?: (open: boolean) => void;
+}
+
+export default function AdminSidebar({
+  mobileOpen: controlledMobileOpen,
+  setMobileOpen: setControlledMobileOpen,
+}: AdminSidebarProps = {}) {
   const pathname = usePathname();
   const { profile, logout } = useAuthStore();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+
+  const mobileOpen = controlledMobileOpen !== undefined ? controlledMobileOpen : internalMobileOpen;
+  const setMobileOpen = setControlledMobileOpen !== undefined ? setControlledMobileOpen : setInternalMobileOpen;
 
   const handleLogout = async () => {
     await logoutUser();
     logout();
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   const navItems = [
     { icon: TrendingUp, label: "Overview", href: "/admin" },
     { icon: Users, label: "Users", href: "/admin/users" },
+    { icon: Megaphone, label: "Advertisements", href: "/admin/ads" },
+    { icon: Briefcase, label: "Job Board", href: "/admin/jobs" },
     { icon: Star, label: "Subscriptions", href: "/admin/subscriptions" },
     { icon: Gift, label: "Referrals & Rewards", href: "/admin/referrals" },
     { icon: AlertTriangle, label: "Reports", href: "/admin/reports" },
     { icon: Settings, label: "Settings", href: "/admin/settings" },
     { icon: UserCheck, label: "Admin Profile", href: "/admin/profile" },
+    { icon: Home, label: "User Feed", href: "/feed" },
   ];
 
   return (
     <>
       {/* MOBILE TOP BAR FOR ADMIN */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-b border-rose-500/20 px-4 py-3 flex items-center justify-between shadow-xl">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-sm border-b border-rose-500/20 px-4 py-3 flex items-center justify-between shadow-xl">
         <Link href="/admin" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white font-bold text-xs shadow-md">
             <Shield className="w-4 h-4" />
@@ -41,12 +55,21 @@ export default function AdminSidebar() {
           <span className="font-extrabold text-white text-base">Super<span className="text-rose-500">Admin</span></span>
         </Link>
 
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 text-slate-300 hover:text-white rounded-xl bg-slate-800/80 border border-white/10"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/feed"
+            className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/10"
+          >
+            User Feed
+          </Link>
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 text-slate-300 hover:text-white rounded-xl bg-slate-800/80 border border-white/10"
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* MOBILE DRAWER OVERLAY */}
@@ -59,7 +82,7 @@ export default function AdminSidebar() {
 
       {/* SIDEBAR CONTAINER (Desktop Sidebar + Mobile Drawer) */}
       <aside className={`
-        fixed lg:sticky top-0 left-0 h-screen z-50 bg-slate-900/95 backdrop-blur-xl border-r border-rose-500/20 flex flex-col justify-between py-6 px-4 transition-all duration-300 overflow-y-auto overscroll-contain no-scrollbar
+        fixed lg:sticky top-0 left-0 h-screen z-50 bg-slate-900/95 md:backdrop-blur-xl border-r border-rose-500/20 flex flex-col justify-between py-6 px-4 transition-all duration-300 overflow-y-auto overscroll-contain no-scrollbar
         ${mobileOpen ? "translate-x-0 w-64 shadow-2xl pt-20 lg:pt-6" : "-translate-x-full lg:translate-x-0 w-64"}
       `}>
         <div>
